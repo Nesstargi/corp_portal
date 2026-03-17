@@ -1,0 +1,36 @@
+<div class="rt-editor-widget" data-rich-text-widget>
+  <div class="rt-editor-toolbar">
+    <button type="button" class="rt-editor-button" data-command="bold" title="Жирный текст">
+      Жирный
+    </button>
+    <button type="button" class="rt-editor-button" data-command="insertUnorderedList" title="Маркированный список">
+      Список
+    </button>
+    <button type="button" class="rt-editor-button" data-command="insertOrderedList" title="Нумерованный список">
+      Нумерация
+    </button>
+    <label class="rt-editor-color">
+      Цвет текста
+      <input type="color" value="#111111" data-color-command="foreColor" />
+    </label>
+    <label class="rt-editor-color">
+      Подсветка
+      <input type="color" value="#fff2a8" data-color-command="hiliteColor" />
+    </label>
+    <button type="button" class="rt-editor-button" data-command="removeFormat" title="Убрать оформление">
+      Сбросить
+    </button>
+  </div>
+
+  <div
+    class="rt-editor-surface"
+    contenteditable="true"
+    data-editor-surface
+  >{{ widget.value|default_if_none:""|safe }}</div>
+
+  <textarea
+    name="{{ widget.name }}"
+    class="rt-editor-source"
+    {% include "django/forms/widgets/attrs.html" %}
+  >{{ widget.value|default_if_none:"" }}</textarea>
+</div>

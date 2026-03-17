@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}
+  Акции | CorpPortal
+{% endblock %}
+
+{% block content %}
+  <section class="page-header">
+    <div class="container">
+      <span class="eyebrow">Акции</span>
+      <h1>Актуальные акции</h1>
+      <p class="lead">Собранные в одном месте промо-предложения, которые можно быстро найти, открыть и уточнить через админку.</p>
+
+      <form class="filters" method="get">
+        <div class="filter-field">
+          <label for="q">Поиск</label>
+          <input id="q" name="q" type="text" value="{{ search_query }}" placeholder="Например: Trade-in, 0-0-24, Apple" />
+        </div>
+        <div class="filter-field">
+          <label for="brand">Бренд</label>
+          <select id="brand" name="brand">
+            <option value="">Все бренды</option>
+            {% for brand in brands %}
+              <option value="{{ brand }}" {% if selected_brand == brand %}selected{% endif %}>{{ brand }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="filter-field">
+          <label for="category">Категория</label>
+          <select id="category" name="category">
+            <option value="">Все категории</option>
+            {% for category in categories %}
+              <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="filter-field">
+          <label for="status">Статус</label>
+          <select id="status" name="status">
+            <option value="">Все</option>
+            <option value="active" {% if selected_status == "active" %}selected{% endif %}>Активные</option>
+            <option value="upcoming" {% if selected_status == "upcoming" %}selected{% endif %}>Скоро начнутся</option>
+            <option value="finished" {% if selected_status == "finished" %}selected{% endif %}>Завершённые</option>
+          </select>
+        </div>
+        <button class="button" type="submit">Применить</button>
+        <a class="button button--ghost" href="{% url 'promotion_list' %}">Сбросить</a>
+      </form>
+
+      <div class="promo-tabs" aria-label="Тип акции">
+        {% for tab in promotion_type_tabs %}
+          <a
+            class="promo-tab{% if selected_promo_type == tab.key %} is-active{% endif %}"
+            href="{{ tab.url }}"
+          >
+            <span>{{ tab.label }}</span>
+            <span class="promo-tab__count">{{ tab.count }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container grid grid--promotions">
+      {% for item in promotions %}
+        <a class="card-link" href="{% url 'promotion_detail' item.slug %}">
+          <article class="card promo-card{% if item.is_featured %} promo-card--featured{% endif %}{% if item.is_preorder %} promo-card--preorder{% endif %}">
+            <div class="meta">
+              {% if item.badge %}
+                <span class="chip chip--feature">{{ item.badge }}</span>
+              {% endif %}
+              {% if item.brand %}
+                <span>{{ item.brand }}</span>
+              {% endif %}
+              {% if item.category %}
+                <span>{{ item.category }}</span>
+              {% endif %}
+            </div>
+            <h3 class="promo-card__title">{{ item.title }}</h3>
+            <p class="promo-card__excerpt">{{ item.summary|default:item.details|striptags|truncatechars:220 }}</p>
+
+            {% if item.is_preorder %}
+              <div class="promo-card__stats">
+                <div class="promo-stat">
+                  <strong>{{ item.preorder_entries_count }}</strong>
+                  <span>заявок</span>
+                </div>
+                <div class="promo-stat">
+                  <strong>{{ item.preorder_models_count }}</strong>
+                  <span>моделей</span>
+                </div>
+                <div class="promo-stat">
+                  <strong>
+                    {% if item.preorder_latest_order_date %}
+                      {{ item.preorder_latest_order_date|date:"d.m" }}
+                    {% else %}
+                      ...
+                    {% endif %}
+                  </strong>
+                  <span>последний заказ</span>
+                </div>
+              </div>
+
+              {% if item.preorder_models_preview %}
+                <div class="promo-inline-list">
+                  {% for model_name in item.preorder_models_preview %}
+                    <span class="chip">{{ model_name|truncatechars:30 }}</span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+
+              {% if item.preorder_status_counts %}
+                <div class="promo-status-list">
+                  {% for status, count in item.preorder_status_counts %}
+                    <span class="promo-status-pill">
+                      <strong>{{ count }}</strong>
+                      <span>{{ status|truncatechars:28 }}</span>
+                    </span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+
+              <div class="chips">
+                {% if item.preorder_sheet_name %}
+                  <span class="chip">Лист: {{ item.preorder_sheet_name|truncatechars:28 }}</span>
+                {% endif %}
+              </div>
+            {% else %}
+              <div class="chips">
+                {% if item.start_date or item.end_date %}
+                  <span class="chip">
+                    {% if item.start_date %}с {{ item.start_date|date:"d.m.Y" }}{% endif %}
+                    {% if item.end_date %} по {{ item.end_date|date:"d.m.Y" }}{% endif %}
+                  </span>
+                {% endif %}
+                {% if item.promo_code %}
+                  <span class="chip">Промокод: {{ item.promo_code }}</span>
+                {% endif %}
+              </div>
+            {% endif %}
+          </article>
+        </a>
+      {% empty %}
+        <div class="empty-state">Акций по выбранным фильтрам пока нет.</div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

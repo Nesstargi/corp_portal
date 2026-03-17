@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}
+  Новости | CorpPortal
+{% endblock %}
+
+{% block content %}
+  <section class="page-header">
+    <div class="container">
+      <span class="eyebrow">Новости</span>
+      <h1>Новости компании</h1>
+      <p class="lead">Публикации о новых моделях, акциях, внутренних изменениях и важных процессах.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container grid grid--three">
+      {% for item in news %}
+        <a class="card-link" href="{% url 'news_detail' item.pk %}">
+          <article class="card">
+            <div class="meta">
+              <span>{{ item.get_category_display }}</span>
+              <span>{{ item.created_at|date:"d.m.Y" }}</span>
+            </div>
+            <h3>{{ item.title }}</h3>
+            <p>{{ item.summary|default:item.content|truncatechars:180 }}</p>
+            {% if item.feature_tags.all or item.brands.all or item.product_categories.all %}
+              <div class="chips">
+                {% for tag in item.feature_tags.all %}
+                  <span class="chip chip--feature">{{ tag.name }}</span>
+                {% endfor %}
+                {% for brand in item.brands.all %}
+                  <span class="chip">{{ brand.name }}</span>
+                {% endfor %}
+                {% for category in item.product_categories.all %}
+                  <span class="chip">{{ category.name }}</span>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </article>
+        </a>
+      {% empty %}
+        <div class="empty-state">Новостей пока нет.</div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

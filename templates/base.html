@@ -1,0 +1,43 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      {% block title %}
+        CorpPortal
+      {% endblock %}
+    </title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container site-header__inner">
+        <div>
+          <a class="logo" href="{% url 'home' %}">CorpPortal</a>
+          <p class="logo-subtitle">Новости, обучение и внутренняя база знаний</p>
+        </div>
+        <nav class="nav">
+          <a href="{% url 'home' %}">Главная</a>
+          <a href="{% url 'news_list' %}">Новости</a>
+          <a href="{% url 'promotion_list' %}">Акции</a>
+          <a href="{% url 'learning_list' %}">Обучение</a>
+          <a href="{% url 'search' %}">Поиск</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+      <div class="container footer__inner">
+        <p>CorpPortal на Django</p>
+        <p>Внутренний корпоративный портал</p>
+      </div>
+    </footer>
+    <script src="{% static 'js/site-slider.js' %}"></script>
+  </body>
+</html>

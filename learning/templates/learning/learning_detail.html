@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {{ material.title }} | CorpPortal
+{% endblock %}
+
+{% block content %}
+  <section class="page-header">
+    <div class="container page-layout">
+      <div>
+        <div class="meta">
+          <span>{{ material.get_material_type_display }}</span>
+        </div>
+        <h1>{{ material.title }}</h1>
+        {% if material.summary %}
+          <p class="lead">{{ material.summary }}</p>
+        {% endif %}
+        <div class="chips">
+          {% for tag in material.feature_tags.all %}
+            <span class="chip chip--feature">{{ tag.name }}</span>
+          {% endfor %}
+          {% for brand in material.brands.all %}
+            <span class="chip">{{ brand.name }}</span>
+          {% endfor %}
+          {% for category in material.categories.all %}
+            <span class="chip">{{ category.name }}</span>
+          {% endfor %}
+          {% for area in material.areas.all %}
+            <span class="chip">{{ area.name }}</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% if material.cover_image %}
+        <div class="page-cover">
+          <img src="{{ material.cover_image.url }}" alt="{{ material.title }}" />
+        </div>
+      {% endif %}
+
+      <article class="card stream-content">
+        {% if material.material_type == "product" and material.has_structured_product_content %}
+          {% if material.product_full_description %}
+            <section class="content-block article-section">
+              <h2>Полное описание</h2>
+              <div class="rich-copy">{{ material.product_full_description|safe }}</div>
+            </section>
+          {% endif %}
+
+          {% with description_images=material.product_description_images.all %}
+            {% if description_images %}
+              <section class="content-block article-section">
+                {% if description_images|length > 1 %}
+                  <div class="image-slider" data-image-slider data-active-index="0">
+                    <div class="image-slider__viewport">
+                      <div class="image-slider__track" data-slider-track>
+                        {% for image in description_images %}
+                          <figure class="image-slider__slide" data-slide aria-hidden="{% if not forloop.first %}true{% else %}false{% endif %}">
+                            <img src="{{ image.image.url }}" alt="{{ image.caption|default:material.title }}" />
+                            {% if image.caption %}
+                              <figcaption class="meta">{{ image.caption }}</figcaption>
+                            {% endif %}
+                          </figure>
+                        {% endfor %}
+                      </div>
+                    </div>
+                    <button class="image-slider__button image-slider__button--prev" type="button" data-slider-prev aria-label="Предыдущее изображение">‹</button>
+                    <button class="image-slider__button image-slider__button--next" type="button" data-slider-next aria-label="Следующее изображение">›</button>
+                    <div class="image-slider__dots">
+                      {% for image in description_images %}
+                        <button class="image-slider__dot{% if forloop.first %} is-active{% endif %}" type="button" data-slide-dot="{{ forloop.counter0 }}" aria-label="Изображение {{ forloop.counter }}" aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"></button>
+                      {% endfor %}
+                    </div>
+                  </div>
+                {% else %}
+                  {% for image in description_images %}
+                    <figure class="article-image article-image--single">
+                      <img src="{{ image.image.url }}" alt="{{ image.caption|default:material.title }}" />
+                      {% if image.caption %}
+                        <figcaption class="meta">{{ image.caption }}</figcaption>
+                      {% endif %}
+                    </figure>
+                  {% endfor %}
+                {% endif %}
+              </section>
+            {% endif %}
+          {% endwith %}
+
+          {% if material.product_video_review_url %}
+            <section class="content-block article-section">
+              <h2>Видеообзор</h2>
+              {% if material.product_video_embed_url %}
+                <div class="video-embed">
+                  <iframe
+                    src="{{ material.product_video_embed_url }}"
+                    title="Видеообзор {{ material.title }}"
+                    loading="lazy"
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen
+                  ></iframe>
+                </div>
+              {% else %}
+                <p><a class="button button--ghost" href="{{ material.product_video_review_url }}" target="_blank" rel="noreferrer">Открыть видеообзор</a></p>
+              {% endif %}
+            </section>
+          {% endif %}
+
+          {% if material.product_text_review %}
+            <section class="content-block article-section">
+              <h2>Обзор текстом</h2>
+              <div class="rich-copy">{{ material.product_text_review|safe }}</div>
+            </section>
+          {% endif %}
+
+          {% with review_images=material.product_review_images.all %}
+            {% if review_images %}
+              <section class="content-block article-section">
+                {% if review_images|length > 1 %}
+                  <div class="image-slider" data-image-slider data-active-index="0">
+                    <div class="image-slider__viewport">
+                      <div class="image-slider__track" data-slider-track>
+                        {% for image in review_images %}
+                          <figure class="image-slider__slide" data-slide aria-hidden="{% if not forloop.first %}true{% else %}false{% endif %}">
+                            <img src="{{ image.image.url }}" alt="{{ image.caption|default:material.title }}" />
+                            {% if image.caption %}
+                              <figcaption class="meta">{{ image.caption }}</figcaption>
+                            {% endif %}
+                          </figure>
+                        {% endfor %}
+                      </div>
+                    </div>
+                    <button class="image-slider__button image-slider__button--prev" type="button" data-slider-prev aria-label="Предыдущее изображение">‹</button>
+                    <button class="image-slider__button image-slider__button--next" type="button" data-slider-next aria-label="Следующее изображение">›</button>
+                    <div class="image-slider__dots">
+                      {% for image in review_images %}
+                        <button class="image-slider__dot{% if forloop.first %} is-active{% endif %}" type="button" data-slide-dot="{{ forloop.counter0 }}" aria-label="Изображение {{ forloop.counter }}" aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"></button>
+                      {% endfor %}
+                    </div>
+                  </div>
+                {% else %}
+                  {% for image in review_images %}
+                    <figure class="article-image article-image--single">
+                      <img src="{{ image.image.url }}" alt="{{ image.caption|default:material.title }}" />
+                      {% if image.caption %}
+                        <figcaption class="meta">{{ image.caption }}</figcaption>
+                      {% endif %}
+                    </figure>
+                  {% endfor %}
+                {% endif %}
+              </section>
+            {% endif %}
+          {% endwith %}
+
+          {% if material.product_features.all %}
+            <section class="content-block article-section">
+              <h2>Фишки и как преподносить клиенту</h2>
+              <div class="article-stack">
+                {% for feature in material.product_features.all %}
+                  <article class="article-note">
+                    <h3>{{ feature.title }}</h3>
+                    {% if feature.description %}
+                      <div class="rich-copy">{{ feature.description|safe }}</div>
+                    {% endif %}
+                    {% if feature.client_pitch %}
+                      <blockquote class="article-quote rich-copy">{{ feature.client_pitch|safe }}</blockquote>
+                    {% endif %}
+                  </article>
+                {% endfor %}
+              </div>
+            </section>
+          {% endif %}
+
+          {% if material.product_sales_scripts.all %}
+            <section class="content-block article-section">
+              <h2>Скрипты продаж</h2>
+              <div class="article-stack">
+                {% for script in material.product_sales_scripts.all %}
+                  <article class="article-note">
+                    <h3>{{ script.title }}</h3>
+                    <blockquote class="article-quote rich-copy">{{ script.script_text|safe }}</blockquote>
+                  </article>
+                {% endfor %}
+              </div>
+            </section>
+          {% endif %}
+
+          {% if material.product_specifications.all %}
+            <section class="content-block article-section">
+              <h2>Характеристики</h2>
+              <div class="spec-table-wrap">
+                <table class="spec-table">
+                  <tbody>
+                    {% for spec in material.product_specifications.all %}
+                      <tr>
+                        <th>{{ spec.name }}</th>
+                        <td>{{ spec.value }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          {% endif %}
+
+          {% if material.product_short_summary %}
+            <section class="content-block article-section">
+              <h2>Краткое резюмирование</h2>
+              <div class="rich-copy">{{ material.product_short_summary|safe }}</div>
+            </section>
+          {% endif %}
+        {% else %}
+          {% if material.content %}
+            <div class="rich-copy">{{ material.content|safe }}</div>
+          {% endif %}
+
+          {% for block in material.blocks.all %}
+            <section class="content-block">
+              {% if block.title %}
+                <h3>{{ block.title }}</h3>
+              {% endif %}
+
+              {% if block.block_type == "text" and block.text %}
+                <div class="rich-copy">{{ block.text|safe }}</div>
+              {% elif block.block_type == "image" and block.image %}
+                <figure class="article-image article-image--single">
+                  <img src="{{ block.image.url }}" alt="{{ block.caption|default:block.title }}" />
+                </figure>
+              {% elif block.block_type == "quote" and block.text %}
+                <blockquote class="rich-copy">{{ block.text|safe }}</blockquote>
+              {% elif block.block_type == "video" and block.video_url %}
+                <p><a class="button button--ghost" href="{{ block.video_url }}" target="_blank" rel="noreferrer">Открыть видео</a></p>
+              {% elif block.block_type == "file" and block.document %}
+                <p><a class="button button--ghost" href="{{ block.document.url }}" target="_blank" rel="noreferrer">Скачать файл</a></p>
+              {% endif %}
+
+              {% if block.caption %}
+                <p class="meta">{{ block.caption }}</p>
+              {% endif %}
+            </section>
+          {% endfor %}
+        {% endif %}
+      </article>
+    </div>
+  </section>
+{% endblock %}

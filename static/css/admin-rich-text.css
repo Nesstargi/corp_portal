@@ -1,0 +1,88 @@
+.rt-editor-widget {
+    max-width: 100%;
+}
+
+.rt-editor-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.rt-editor-button {
+    padding: 6px 10px;
+    border: 1px solid #c7d0d9;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    font: inherit;
+}
+
+.rt-editor-button:hover {
+    background: #f3f6f9;
+}
+
+.rt-editor-color {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid #c7d0d9;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 13px;
+}
+
+.rt-editor-color input {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+
+.rt-editor-surface {
+    min-height: 180px;
+    padding: 12px 14px;
+    border: 1px solid #c7d0d9;
+    border-radius: 10px;
+    background: #fff;
+    line-height: 1.55;
+}
+
+.rt-editor-surface:focus {
+    outline: 2px solid #79aec8;
+    outline-offset: 1px;
+}
+
+.rt-editor-surface ul,
+.rt-editor-surface ol {
+    margin: 12px 0 12px 24px;
+    padding-left: 24px;
+    list-style-position: outside;
+}
+
+.rt-editor-surface .rt-list {
+    margin: 12px 0 12px 24px;
+    padding-left: 24px;
+    list-style-position: outside;
+}
+
+.rt-editor-surface li {
+    margin: 6px 0;
+    padding-left: 8px;
+}
+
+.rt-editor-surface .rt-list-item {
+    margin: 6px 0;
+    padding-left: 8px;
+}
+
+.rt-editor-field-hidden {
+    display: none;
+}
+
+.rt-editor-source {
+    display: none;
+}

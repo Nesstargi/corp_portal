@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {{ promotion.title }} | CorpPortal
+{% endblock %}
+
+{% block content %}
+  <section class="page-header">
+    <div class="container page-layout">
+      <div>
+        <div class="meta">
+          {% if promotion.badge %}
+            <span class="chip chip--feature">{{ promotion.badge }}</span>
+          {% endif %}
+          {% if promotion.brand %}
+            <span>{{ promotion.brand }}</span>
+          {% endif %}
+          {% if promotion.category %}
+            <span>{{ promotion.category }}</span>
+          {% endif %}
+        </div>
+        <h1>{{ promotion.title }}</h1>
+        {% if promotion.summary %}
+          <p class="lead">{{ promotion.summary }}</p>
+        {% endif %}
+        <div class="chips">
+          {% if promotion.start_date %}
+            <span class="chip">Старт: {{ promotion.start_date|date:"d.m.Y" }}</span>
+          {% endif %}
+          {% if promotion.end_date %}
+            <span class="chip">Окончание: {{ promotion.end_date|date:"d.m.Y" }}</span>
+          {% endif %}
+          {% if promotion.promo_code %}
+            <span class="chip">Промокод: {{ promotion.promo_code }}</span>
+          {% endif %}
+        </div>
+
+        {% if promotion.is_preorder %}
+          <section class="preorder-hero">
+            <div class="preorder-summary-grid">
+              <div class="preorder-summary-card">
+                <span>Заявок</span>
+                <strong>{{ promotion.preorder_entries_count }}</strong>
+              </div>
+              <div class="preorder-summary-card">
+                <span>Моделей</span>
+                <strong>{{ promotion.preorder_models_count }}</strong>
+              </div>
+              <div class="preorder-summary-card">
+                <span>Основной статус</span>
+                <strong>{{ promotion.preorder_primary_status|default:"Не указан" }}</strong>
+              </div>
+              <div class="preorder-summary-card">
+                <span>Последний заказ</span>
+                <strong>
+                  {% if promotion.preorder_latest_order_date %}
+                    {{ promotion.preorder_latest_order_date|date:"d.m.Y" }}
+                  {% else %}
+                    Не указан
+                  {% endif %}
+                </strong>
+              </div>
+            </div>
+
+            {% if promotion.preorder_models_preview %}
+              <div class="preorder-summary-section">
+                <h2>Основные модели</h2>
+                <div class="promo-inline-list">
+                  {% for model_name in promotion.preorder_models_preview %}
+                    <span class="chip">{{ model_name }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+
+            {% if promotion.preorder_status_counts %}
+              <div class="preorder-summary-section">
+                <h2>Сводка по статусам</h2>
+                <div class="promo-status-list">
+                  {% for status, count in promotion.preorder_status_counts %}
+                    <span class="promo-status-pill">
+                      <strong>{{ count }}</strong>
+                      <span>{{ status }}</span>
+                    </span>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+          </section>
+        {% endif %}
+      </div>
+
+      <article class="card stream-content">
+        {% if promotion.details %}
+          <div class="rich-copy">{{ promotion.details|safe }}</div>
+        {% endif %}
+
+        {% if promotion.preorder_entries %}
+          <section class="content-block article-section">
+            <h2>Заявки из таблицы</h2>
+            <div class="spec-table-wrap">
+              <table class="spec-table">
+                <thead>
+                  <tr>
+                    <th>Модель</th>
+                    <th>Дата заказа</th>
+                    <th>Клиент</th>
+                    <th>Телефон</th>
+                    <th>Продавец</th>
+                    <th>Способ</th>
+                    <th>ТО</th>
+                    <th>Статус</th>
+                    <th>Комментарий</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for entry in promotion.preorder_entries %}
+                    <tr>
+                      <td>{{ entry.model|default:"-" }}</td>
+                      <td>{{ entry.order_date|default:"-" }}</td>
+                      <td>{{ entry.customer_name|default:"-" }}</td>
+                      <td>{{ entry.phone|default:"-" }}</td>
+                      <td>{{ entry.salesperson|default:"-" }}</td>
+                      <td>{{ entry.acquisition_method|default:"-" }}</td>
+                      <td>{{ entry.store|default:"-" }}</td>
+                      <td>
+                        {% if entry.status %}
+                          {{ entry.status }}
+                        {% else %}
+                          {{ entry.product_status|default:"-" }}
+                        {% endif %}
+                      </td>
+                      <td>{{ entry.comment|default:"-" }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        {% endif %}
+
+        {% if promotion.extra_data_items %}
+          <section class="content-block article-section">
+            <h2>Дополнительные поля из таблицы</h2>
+            <div class="spec-table-wrap">
+              <table class="spec-table">
+                <tbody>
+                  {% for key, value in promotion.extra_data_items %}
+                    <tr>
+                      <th>{{ key }}</th>
+                      <td>{{ value }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        {% endif %}
+
+        {% if promotion.cta_url %}
+          <section class="content-block article-section">
+            <a class="button" href="{{ promotion.cta_url }}" target="_blank" rel="noreferrer">
+              {{ promotion.cta_label|default:"Открыть акцию" }}
+            </a>
+          </section>
+        {% endif %}
+      </article>
+    </div>
+  </section>
+{% endblock %}

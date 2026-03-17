@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}
+  Обучение | CorpPortal
+{% endblock %}
+
+{% block content %}
+  <section class="page-header">
+    <div class="container">
+      <span class="eyebrow">Обучение</span>
+      <h1>Обучающие материалы</h1>
+      <p class="lead">Фильтруй материалы по бренду, категории товара, области знаний и типу материала.</p>
+
+      <form class="filters" method="get">
+        <div class="filter-field">
+          <label for="brand">Бренд</label>
+          <select id="brand" name="brand">
+            <option value="">Все бренды</option>
+            {% for brand in brands %}
+              <option value="{{ brand.slug }}" {% if selected_brand == brand.slug %}selected{% endif %}>{{ brand.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="filter-field">
+          <label for="category">Категория</label>
+          <select id="category" name="category">
+            <option value="">Все категории</option>
+            {% for category in product_categories %}
+              <option value="{{ category.slug }}" {% if selected_category == category.slug %}selected{% endif %}>{{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="filter-field">
+          <label for="area">Область</label>
+          <select id="area" name="area">
+            <option value="">Все области</option>
+            {% for area in knowledge_areas %}
+              <option value="{{ area.slug }}" {% if selected_area == area.slug %}selected{% endif %}>{{ area.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="filter-field">
+          <label for="type">Тип материала</label>
+          <select id="type" name="type">
+            <option value="">Все типы</option>
+            {% for value, label in material_types %}
+              <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button class="button" type="submit">Применить</button>
+        <a class="button button--ghost" href="{% url 'learning_list' %}">Сбросить</a>
+      </form>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container grid grid--three">
+      {% for item in materials %}
+        <a class="card-link" href="{% url 'learning_detail' item.pk %}">
+          <article class="card">
+            <div class="meta">
+              <span>{{ item.get_material_type_display }}</span>
+            </div>
+            <h3>{{ item.title }}</h3>
+            <p>{{ item.summary|default:item.product_short_summary|default:item.product_full_description|default:item.content|striptags|truncatechars:180 }}</p>
+            {% if item.feature_tags.all or item.brands.all or item.categories.all or item.areas.all %}
+              <div class="chips">
+                {% for tag in item.feature_tags.all %}
+                  <span class="chip chip--feature">{{ tag.name }}</span>
+                {% endfor %}
+                {% for brand in item.brands.all %}
+                  <span class="chip">{{ brand.name }}</span>
+                {% endfor %}
+                {% for category in item.categories.all %}
+                  <span class="chip">{{ category.name }}</span>
+                {% endfor %}
+                {% for area in item.areas.all %}
+                  <span class="chip">{{ area.name }}</span>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </article>
+        </a>
+      {% empty %}
+        <div class="empty-state">Материалов по выбранным фильтрам пока нет.</div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

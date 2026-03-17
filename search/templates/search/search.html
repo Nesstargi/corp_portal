@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}
+  Поиск | CorpPortal
+{% endblock %}
+
+{% block content %}
+  <section class="page-header">
+    <div class="container">
+      <span class="eyebrow">Поиск</span>
+      <h1>Поиск по порталу</h1>
+      <p class="lead">Ищи новости и обучающие материалы по названиям, тексту, брендам и категориям.</p>
+
+      <form class="search-bar" method="get">
+        <input type="text" name="query" value="{{ search_query }}" placeholder="Например: Apple, 1C, фритюрницы" />
+        <button class="button" type="submit">Найти</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container grid">
+      {% if search_query %}
+        <article class="card">
+          <h2>Новости</h2>
+          <div class="grid">
+            {% for item in news_results %}
+              <a class="card-link" href="{% url 'news_detail' item.pk %}">
+                <div class="card">
+                  <h3>{{ item.title }}</h3>
+                  <p>{{ item.summary|default:item.content|truncatechars:160 }}</p>
+                </div>
+              </a>
+            {% empty %}
+              <div class="empty-state">По новостям ничего не найдено.</div>
+            {% endfor %}
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Акции</h2>
+          <div class="grid">
+            {% for item in promotion_results %}
+              <a class="card-link" href="{% url 'promotion_detail' item.slug %}">
+                <div class="card">
+                  <h3>{{ item.title }}</h3>
+                  <p>{{ item.summary|default:item.details|striptags|truncatechars:160 }}</p>
+                </div>
+              </a>
+            {% empty %}
+              <div class="empty-state">По акциям ничего не найдено.</div>
+            {% endfor %}
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Обучение</h2>
+          <div class="grid">
+            {% for item in learning_results %}
+              <a class="card-link" href="{% url 'learning_detail' item.pk %}">
+                <div class="card">
+                  <h3>{{ item.title }}</h3>
+                  <p>{{ item.summary|default:item.product_short_summary|default:item.product_full_description|default:item.content|striptags|truncatechars:160 }}</p>
+                </div>
+              </a>
+            {% empty %}
+              <div class="empty-state">По обучающим материалам ничего не найдено.</div>
+            {% endfor %}
+          </div>
+        </article>
+      {% else %}
+        <div class="empty-state">Введи поисковый запрос, и портал покажет подходящие новости и материалы.</div>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+
+{% block title %}
+  {{ page.title }} | CorpPortal
+{% endblock %}
+
+{% block content %}
+  <section class="page-header">
+    <div class="container page-layout">
+      <div>
+        <div class="meta">
+          <span>{{ page.get_material_type_display }}</span>
+        </div>
+        <h1>{{ page.title }}</h1>
+        {% if page.summary %}
+          <p class="lead">{{ page.summary }}</p>
+        {% endif %}
+        <div class="chips">
+          {% for brand in page.brands.all %}
+            <span class="chip">{{ brand.name }}</span>
+          {% endfor %}
+          {% for category in page.categories.all %}
+            <span class="chip">{{ category.name }}</span>
+          {% endfor %}
+          {% for area in page.areas.all %}
+            <span class="chip">{{ area.name }}</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% if page.hero_image %}
+        <div class="page-cover">
+          {% image page.hero_image fill-1200x520 %}
+        </div>
+      {% endif %}
+
+      <article class="card stream-content">
+        {% include_block page.body %}
+      </article>
+    </div>
+  </section>
+{% endblock %}

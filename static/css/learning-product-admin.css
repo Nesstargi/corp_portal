@@ -1,0 +1,23 @@
+.learning-admin-section {
+    margin-bottom: 20px;
+}
+
+.learning-admin-section .module {
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 10px 24px rgba(24, 33, 47, 0.06);
+}
+
+.learning-admin-section .fieldset-heading,
+.learning-admin-section .inline-heading {
+    font-size: 22px;
+}
+
+.learning-admin-section .description {
+    padding: 0 16px 12px;
+    color: #4f5b67;
+}
+
+.learning-admin-section.is-hidden {
+    display: none;
+}

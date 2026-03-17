@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {{ page.title }} | CorpPortal
+{% endblock %}
+
+{% block content %}
+  <section class="page-header">
+    <div class="container">
+      <span class="eyebrow">Новости</span>
+      <h1>{{ page.title }}</h1>
+      <p class="lead">{{ page.intro }}</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container grid grid--three">
+      {% for item in news_items %}
+        <a class="card-link" href="{{ item.url }}">
+          <article class="card">
+            <div class="meta">
+              <span>{{ item.get_category_display }}</span>
+              <span>{{ item.publish_date|date:"d.m.Y" }}</span>
+            </div>
+            <h3>{{ item.title }}</h3>
+            {% if item.summary %}
+              <p>{{ item.summary }}</p>
+            {% endif %}
+          </article>
+        </a>
+      {% empty %}
+        <div class="empty-state">Пока новостей нет. Их можно добавлять через Wagtail-админку.</div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

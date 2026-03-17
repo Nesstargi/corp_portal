@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {{ page.title }} | CorpPortal
+{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <div class="container">
+      <div class="hero-card">
+        <span class="eyebrow">Корпоративный портал</span>
+        <h1>{{ page.title }}</h1>
+        <p class="lead">{{ page.intro }}</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container grid grid--three">
+      <a class="card-link" href="/news/">
+        <article class="card">
+          <h3>Новости</h3>
+          <p>Публикации о новых моделях, корпоративных событиях, акциях и обновлениях процессов.</p>
+        </article>
+      </a>
+      <a class="card-link" href="/learning/">
+        <article class="card">
+          <h3>Обучение</h3>
+          <p>База знаний по брендам, категориям товаров, 1С, акциям и кредитным продуктам.</p>
+        </article>
+      </a>
+      <a class="card-link" href="/search/">
+        <article class="card">
+          <h3>Поиск</h3>
+          <p>Быстрый поиск по страницам портала, чтобы сотрудникам не искать материалы вручную.</p>
+        </article>
+      </a>
+    </div>
+  </section>
+{% endblock %}

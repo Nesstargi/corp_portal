@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}
+  Главная | CorpPortal
+{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <div class="container">
+      <div class="hero-card">
+        <span class="eyebrow">Корпоративный портал</span>
+        <h1>Единый портал для команды продаж</h1>
+        <p class="lead">Новости компании, обучающие материалы, инструкции по товарам, акции и быстрое внутреннее ориентирование по брендам, категориям и процессам.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container grid grid--three">
+      <article class="card">
+        <h3>Новости</h3>
+        <p>Новые модели, акции, корпоративные события и важные изменения в процессах.</p>
+        <a class="button" href="{% url 'news_list' %}">Открыть раздел</a>
+      </article>
+      <article class="card">
+        <h3>Акции</h3>
+        <p>Импорт из Google Sheets, единая витрина предложений и быстрый доступ к условиям для команды продаж.</p>
+        <a class="button" href="{% url 'promotion_list' %}">Открыть акции</a>
+      </article>
+      <article class="card">
+        <h3>Обучение</h3>
+        <p>Материалы по 1С, брендам, категориям товаров, кредитным продуктам и внутренним процессам.</p>
+        <a class="button" href="{% url 'learning_list' %}">Перейти к обучению</a>
+      </article>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2>Последние новости</h2>
+      <div class="grid grid--three">
+        {% for item in latest_news %}
+          <a class="card-link" href="{% url 'news_detail' item.pk %}">
+            <article class="card">
+              <div class="meta">
+                <span>{{ item.get_category_display }}</span>
+                <span>{{ item.created_at|date:"d.m.Y" }}</span>
+              </div>
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.summary|default:item.content|truncatechars:160 }}</p>
+              {% if item.feature_tags.all or item.brands.all or item.product_categories.all %}
+                <div class="chips">
+                  {% for tag in item.feature_tags.all %}
+                    <span class="chip chip--feature">{{ tag.name }}</span>
+                  {% endfor %}
+                  {% for brand in item.brands.all %}
+                    <span class="chip">{{ brand.name }}</span>
+                  {% endfor %}
+                  {% for category in item.product_categories.all %}
+                    <span class="chip">{{ category.name }}</span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </article>
+          </a>
+        {% empty %}
+          <div class="empty-state">Новостей пока нет.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2>Горячие акции</h2>
+      <div class="grid grid--three">
+        {% for item in latest_promotions %}
+          <a class="card-link" href="{% url 'promotion_detail' item.slug %}">
+            <article class="card promo-card{% if item.is_featured %} promo-card--featured{% endif %}">
+              <div class="meta">
+                {% if item.badge %}
+                  <span class="chip chip--feature">{{ item.badge }}</span>
+                {% endif %}
+                {% if item.brand %}
+                  <span>{{ item.brand }}</span>
+                {% endif %}
+              </div>
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.summary|default:item.details|striptags|truncatechars:160 }}</p>
+            </article>
+          </a>
+        {% empty %}
+          <div class="empty-state">Акции пока не загружены.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2>Свежие материалы</h2>
+      <div class="grid grid--three">
+        {% for item in latest_learning %}
+          <a class="card-link" href="{% url 'learning_detail' item.pk %}">
+            <article class="card">
+              <div class="meta">
+                <span>{{ item.get_material_type_display }}</span>
+              </div>
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.summary|default:item.product_short_summary|default:item.product_full_description|default:item.content|striptags|truncatechars:160 }}</p>
+              {% if item.feature_tags.all or item.brands.all or item.categories.all or item.areas.all %}
+                <div class="chips">
+                  {% for tag in item.feature_tags.all %}
+                    <span class="chip chip--feature">{{ tag.name }}</span>
+                  {% endfor %}
+                  {% for brand in item.brands.all %}
+                    <span class="chip">{{ brand.name }}</span>
+                  {% endfor %}
+                  {% for category in item.categories.all %}
+                    <span class="chip">{{ category.name }}</span>
+                  {% endfor %}
+                  {% for area in item.areas.all %}
+                    <span class="chip">{{ area.name }}</span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </article>
+          </a>
+        {% empty %}
+          <div class="empty-state">Обучающих материалов пока нет.</div>
+        {% endfor %}
+      </div>
+      <div class="section-link-row">
+        <a class="button button--ghost" href="{% url 'search' %}">Открыть глобальный поиск</a>
+      </div>
+    </div>
+  </section>
+{% endblock %}
