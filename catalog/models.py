@@ -11,9 +11,24 @@ class BaseDirectory(models.Model):
         abstract = True
         ordering = ["name"]
 
+    def build_unique_slug(self):
+        base_slug = slugify(self.slug or self.name, allow_unicode=True)
+        if not base_slug:
+            base_slug = self.__class__.__name__.lower()
+
+        slug = base_slug
+        queryset = self.__class__.objects.all()
+        if self.pk:
+            queryset = queryset.exclude(pk=self.pk)
+
+        counter = 2
+        while queryset.filter(slug=slug).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        return slug
+
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
+        self.slug = self.build_unique_slug()
         super().save(*args, **kwargs)
 
     def __str__(self):
