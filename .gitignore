@@ -9,5 +9,6 @@ db.sqlite3
 media/
 staticfiles/
 deploy_data.json
+deploy_data_utf8.json
 corp_portal_code.zip
 corp_portal_media.zip
