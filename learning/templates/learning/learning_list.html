@@ -57,29 +57,43 @@
   <section class="section">
     <div class="container grid grid--three">
       {% for item in materials %}
-        <a class="card-link" href="{% url 'learning_detail' item.pk %}">
-          <article class="card">
-            <div class="meta">
-              <span>{{ item.get_material_type_display }}</span>
-            </div>
-            <h3>{{ item.title }}</h3>
-            <p>{{ item.summary|default:item.product_short_summary|default:item.product_full_description|default:item.content|striptags|truncatechars:180 }}</p>
-            {% if item.feature_tags.all or item.brands.all or item.categories.all or item.areas.all %}
-              <div class="chips">
-                {% for tag in item.feature_tags.all %}
-                  <span class="chip chip--feature">{{ tag.name }}</span>
-                {% endfor %}
-                {% for brand in item.brands.all %}
-                  <span class="chip">{{ brand.name }}</span>
-                {% endfor %}
-                {% for category in item.categories.all %}
-                  <span class="chip">{{ category.name }}</span>
-                {% endfor %}
-                {% for area in item.areas.all %}
-                  <span class="chip">{{ area.name }}</span>
-                {% endfor %}
+        <a class="card-link learning-card-link" href="{% url 'learning_detail' item.pk %}">
+          <article class="card learning-card">
+            <div
+              class="learning-card__cover{% if item.cover_image %} learning-card__cover--image{% endif %}"
+              {% if item.cover_image %}
+                style="--cover-image: url('{{ item.cover_image.url }}');"
+              {% endif %}
+            >
+              <div class="learning-card__cover-top">
+                <span class="learning-card__type">{{ item.get_material_type_display }}</span>
+                <span class="learning-card__open">Открыть</span>
               </div>
-            {% endif %}
+            </div>
+
+            <div class="learning-card__body">
+              <h3>{{ item.title }}</h3>
+              {% with preview_text=item.summary|default:item.product_short_summary|default:item.product_full_description|default:item.content|striptags|truncatechars:180 %}
+                <p class="learning-card__excerpt">{{ preview_text }}</p>
+              {% endwith %}
+
+              {% if item.feature_tags.all or item.brands.all or item.categories.all or item.areas.all %}
+                <div class="chips learning-card__chips">
+                  {% for tag in item.feature_tags.all %}
+                    <span class="chip chip--feature">{{ tag.name }}</span>
+                  {% endfor %}
+                  {% for brand in item.brands.all %}
+                    <span class="chip">{{ brand.name }}</span>
+                  {% endfor %}
+                  {% for category in item.categories.all %}
+                    <span class="chip">{{ category.name }}</span>
+                  {% endfor %}
+                  {% for area in item.areas.all %}
+                    <span class="chip">{{ area.name }}</span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
           </article>
         </a>
       {% empty %}
