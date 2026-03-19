@@ -20,8 +20,8 @@
           {% endif %}
         </div>
         <h1>{{ promotion.title }}</h1>
-        {% if promotion.summary %}
-          <p class="lead">{{ promotion.summary }}</p>
+        {% if promotion.card_summary %}
+          <p class="lead">{{ promotion.card_summary }}</p>
         {% endif %}
         <div class="chips">
           {% if promotion.start_date %}
@@ -34,6 +34,27 @@
             <span class="chip">Промокод: {{ promotion.promo_code }}</span>
           {% endif %}
         </div>
+
+        {% if promotion.has_offer_highlight and not promotion.is_preorder %}
+          <section class="promo-offer-box promo-offer-box--detail{% if promotion.benefit_display_mode == 'text' %} promo-offer-box--detail-text{% endif %}">
+            {% if promotion.formatted_promo_price %}
+              <div class="promo-offer-box__item">
+                <span class="promo-offer-box__label">Промоцена</span>
+                <strong class="promo-offer-box__value">{{ promotion.formatted_promo_price }}</strong>
+              </div>
+            {% endif %}
+            {% if promotion.formatted_benefit_value %}
+              <div class="promo-offer-box__item promo-offer-box__item--accent{% if promotion.benefit_display_mode == 'text' %} promo-offer-box__item--wide promo-offer-box__item--text-detail{% endif %}">
+                <span class="promo-offer-box__label">{{ promotion.benefit_label }}</span>
+                {% if promotion.benefit_display_mode == 'text' %}
+                  <div class="promo-offer-box__text">{{ promotion.formatted_benefit_value }}</div>
+                {% else %}
+                  <strong class="promo-offer-box__value promo-offer-box__value--benefit">{{ promotion.formatted_benefit_value }}</strong>
+                {% endif %}
+              </div>
+            {% endif %}
+          </section>
+        {% endif %}
 
         {% if promotion.is_preorder %}
           <section class="preorder-hero">

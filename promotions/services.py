@@ -106,6 +106,18 @@ HEADER_SYNONYMS = {
         "цена",
         "цена акции",
     ],
+    "benefit_value": [
+        "benefit",
+        "discount",
+        "gift",
+        "скидка подарок",
+        "скидка / подарок",
+        "скидка/ подарок",
+        "скидка",
+        "подарок",
+        "выгода",
+        "размер скидки",
+    ],
     "cta_label": [
         "cta label",
         "button text",
@@ -475,6 +487,7 @@ def map_row_to_promotion(source, row_number, raw_row):
     category = extract_value(normalized_row, "category")
     promo_code = extract_value(normalized_row, "promo_code")
     promo_price = extract_value(normalized_row, "promo_price")
+    benefit_value = extract_value(normalized_row, "benefit_value")
     cta_url = extract_value(normalized_row, "cta_url")
     cta_label = extract_value(normalized_row, "cta_label")
     badge = extract_value(normalized_row, "badge")
@@ -515,6 +528,9 @@ def map_row_to_promotion(source, row_number, raw_row):
         summary_parts.append(title)
         if promo_price:
             summary_parts.append(f"Промоцена: {promo_price}")
+        if benefit_value:
+            benefit_label = "Подарок" if promotion_kind == Promotion.KIND_GIFT else "Скидка"
+            summary_parts.append(f"{benefit_label}: {benefit_value}")
         if details:
             summary_parts.append(details)
         summary = ". ".join(part for part in summary_parts if part)
@@ -529,9 +545,13 @@ def map_row_to_promotion(source, row_number, raw_row):
         detail_parts.append(f"<p><strong>Товар:</strong> {title}</p>")
         if promo_price:
             detail_parts.append(f"<p><strong>Промоцена:</strong> {promo_price}</p>")
-        benefit = extract_value(normalized_row, "details")
-        if benefit:
-            detail_parts.append(f"<p><strong>Условия:</strong> {clean_inline_html(benefit)}</p>")
+        if benefit_value:
+            benefit_label = "Подарок" if promotion_kind == Promotion.KIND_GIFT else "Скидка"
+            detail_parts.append(
+                f"<p><strong>{benefit_label}:</strong> {clean_inline_html(benefit_value)}</p>"
+            )
+        if details:
+            detail_parts.append(f"<p><strong>Условия:</strong> {clean_inline_html(details)}</p>")
         details = "".join(detail_parts)
 
     if not badge and promo_code:
@@ -547,6 +567,8 @@ def map_row_to_promotion(source, row_number, raw_row):
         "details": details,
         "brand": brand,
         "category": category,
+        "promo_price": promo_price,
+        "benefit_value": benefit_value,
         "promo_code": promo_code,
         "cta_label": cta_label,
         "cta_url": cta_url,

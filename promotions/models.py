@@ -1,9 +1,11 @@
 from collections import Counter
 from datetime import datetime
+import re
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from django.db import models
 from django.utils import timezone
+from django.utils.html import strip_tags
 from django.utils.text import slugify
 
 
@@ -168,10 +170,23 @@ class Promotion(models.Model):
         blank=True,
         help_text="Например: Хит, 0-0-24, Trade-in, Cashback.",
     )
+    cover_image = models.ImageField(
+        "Изображение акции",
+        upload_to="promotions/images/",
+        blank=True,
+        null=True,
+    )
     summary = models.TextField("Краткое описание для списка", blank=True)
     details = models.TextField("Подробные условия", blank=True)
     brand = models.CharField("Бренд", max_length=120, blank=True)
     category = models.CharField("Категория", max_length=120, blank=True)
+    promo_price = models.CharField("Промоцена", max_length=80, blank=True)
+    benefit_value = models.CharField(
+        "Скидка / подарок",
+        max_length=120,
+        blank=True,
+        help_text="Например: 380, 15% или Наушники в подарок.",
+    )
     promo_code = models.CharField("Промокод", max_length=80, blank=True)
     cta_label = models.CharField("Текст кнопки", max_length=80, blank=True)
     cta_url = models.URLField("Ссылка кнопки", blank=True)
@@ -242,6 +257,18 @@ class Promotion(models.Model):
             "категория",
             "promo_code",
             "промокод",
+            "promo price",
+            "price",
+            "промоцена",
+            "цена акции",
+            "цена",
+            "скидка/ подарок",
+            "скидка / подарок",
+            "скидка подарок",
+            "скидка",
+            "подарок",
+            "benefit",
+            "discount",
             "cta_url",
             "ссылка",
             "link",
@@ -332,3 +359,127 @@ class Promotion(models.Model):
         if not parsed_dates:
             return None
         return max(parsed_dates)
+
+    def _raw_data_lookup(self, *candidates):
+        normalized_candidates = {
+            candidate.strip().casefold()
+            for candidate in candidates
+            if candidate and candidate.strip()
+        }
+        for key, value in (self.raw_data or {}).items():
+            if key.strip().casefold() in normalized_candidates and str(value).strip():
+                return str(value).strip()
+        return ""
+
+    @property
+    def resolved_promo_price(self):
+        return self.promo_price or self._raw_data_lookup(
+            "Промоцена",
+            "Цена акции",
+            "Цена",
+            "Promo price",
+            "Price",
+        )
+
+    @property
+    def resolved_benefit_value(self):
+        return self.benefit_value or self._raw_data_lookup(
+            "СКИДКА/ ПОДАРОК",
+            "СКИДКА / ПОДАРОК",
+            "Скидка",
+            "Подарок",
+            "Benefit",
+            "Discount",
+        )
+
+    @staticmethod
+    def _format_offer_value(value):
+        raw_value = str(value or "").strip()
+        if not raw_value:
+            return ""
+
+        if "%" in raw_value:
+            return raw_value
+
+        if re.fullmatch(r"[\d\s.,]+", raw_value):
+            digits = re.sub(r"[^\d]", "", raw_value)
+            if digits:
+                return f"{int(digits):,}".replace(",", " ") + "\u00A0BYN"
+
+        return raw_value
+
+    @property
+    def formatted_promo_price(self):
+        return self._format_offer_value(self.resolved_promo_price)
+
+    @property
+    def formatted_benefit_value(self):
+        return self._format_offer_value(self.resolved_benefit_value)
+
+    @property
+    def benefit_display_mode(self):
+        value = str(self.resolved_benefit_value or "").strip()
+        if not value:
+            return "empty"
+        if "%" in value or re.fullmatch(r"[\d\s.,]+", value):
+            return "numeric"
+        return "text"
+
+    @property
+    def benefit_label(self):
+        if self.promotion_kind == self.KIND_GIFT:
+            return "Подарок"
+
+        benefit_value = self.resolved_benefit_value.casefold()
+        if "подар" in benefit_value:
+            return "Подарок"
+
+        return "Скидка"
+
+    @property
+    def has_offer_highlight(self):
+        return bool(self.resolved_promo_price or self.resolved_benefit_value)
+
+    @property
+    def plain_details(self):
+        return strip_tags(self.details or "").strip()
+
+    @property
+    def card_summary(self):
+        summary = strip_tags(self.summary or "").strip()
+        if not summary:
+            summary = self.plain_details
+
+        summary = re.sub(
+            r"^(промоцена|скидка|подарок|предзаказ)\.?\s*",
+            "",
+            summary,
+            flags=re.IGNORECASE,
+        )
+        if self.brand:
+            summary = re.sub(
+                rf"^{re.escape(self.brand)}\.?\s*",
+                "",
+                summary,
+                flags=re.IGNORECASE,
+            )
+        summary = re.sub(
+            rf"^{re.escape(self.title)}\.?\s*",
+            "",
+            summary,
+            flags=re.IGNORECASE,
+        )
+        summary = re.sub(
+            r"Промоцена:\s*[\d\s.,]+(?:\s*[.\-]\s*[\d\s.,]+)?",
+            "",
+            summary,
+            flags=re.IGNORECASE,
+        )
+        summary = re.sub(
+            r"(Скидка|Подарок):\s*[^.]+",
+            "",
+            summary,
+            flags=re.IGNORECASE,
+        )
+        summary = re.sub(r"\s{2,}", " ", summary).strip(" .")
+        return summary or self.plain_details

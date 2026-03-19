@@ -116,6 +116,8 @@ class PromotionAdmin(admin.ModelAdmin):
         "badge",
         "brand",
         "category",
+        "promo_price",
+        "benefit_value",
         "start_date",
         "end_date",
         "is_featured",
@@ -145,7 +147,14 @@ class PromotionAdmin(admin.ModelAdmin):
         (
             "Что увидит сотрудник",
             {
-                "fields": ("title", "promotion_kind", "badge", "summary", "details"),
+                "fields": (
+                    "title",
+                    "promotion_kind",
+                    "badge",
+                    "cover_image",
+                    "summary",
+                    "details",
+                ),
             },
         ),
         (
@@ -154,6 +163,8 @@ class PromotionAdmin(admin.ModelAdmin):
                 "fields": (
                     "brand",
                     "category",
+                    "promo_price",
+                    "benefit_value",
                     "promo_code",
                     "start_date",
                     "end_date",

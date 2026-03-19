@@ -9,7 +9,6 @@ PROMOTION_TYPE_TABS = (
     ("", "Все акции"),
     ("promo_price", "Промоцена"),
     ("gift", "Подарок"),
-    ("preorder", "Предзаказы"),
 )
 
 
@@ -84,6 +83,7 @@ def promotion_list(request):
     promotions = Promotion.objects.filter(is_published=True).order_by(
         "-is_featured", "sort_order", "title"
     )
+    promotions = promotions.exclude(promotion_kind=Promotion.KIND_PREORDER)
 
     if search_query:
         promotions = promotions.filter(
@@ -115,14 +115,15 @@ def promotion_list(request):
     promotion_type_tabs = build_promo_type_tabs(request, promotions)
     promotions = apply_promo_type_filter(promotions, selected_promo_type)
 
+    filter_source = Promotion.objects.exclude(promotion_kind=Promotion.KIND_PREORDER)
     brands = (
-        Promotion.objects.exclude(brand="")
+        filter_source.exclude(brand="")
         .order_by("brand")
         .values_list("brand", flat=True)
         .distinct()
     )
     categories = (
-        Promotion.objects.exclude(category="")
+        filter_source.exclude(category="")
         .order_by("category")
         .values_list("category", flat=True)
         .distinct()
@@ -146,7 +147,11 @@ def promotion_list(request):
 
 
 def promotion_detail(request, slug):
-    promotion = get_object_or_404(Promotion, slug=slug, is_published=True)
+    promotion = get_object_or_404(
+        Promotion.objects.exclude(promotion_kind=Promotion.KIND_PREORDER),
+        slug=slug,
+        is_published=True,
+    )
     return render(
         request,
         "promotions/promotion_detail.html",

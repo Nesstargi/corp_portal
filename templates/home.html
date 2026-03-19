@@ -73,20 +73,58 @@
   <section class="section">
     <div class="container">
       <h2>Горячие акции</h2>
-      <div class="grid grid--three">
+      <div class="promo-list-stack">
         {% for item in latest_promotions %}
           <a class="card-link" href="{% url 'promotion_detail' item.slug %}">
-            <article class="card promo-card{% if item.is_featured %} promo-card--featured{% endif %}">
-              <div class="meta">
-                {% if item.badge %}
-                  <span class="chip chip--feature">{{ item.badge }}</span>
-                {% endif %}
-                {% if item.brand %}
-                  <span>{{ item.brand }}</span>
+            <article class="card promo-card promo-card--row{% if item.is_featured %} promo-card--featured{% endif %}">
+              <div class="promo-card__media{% if not item.cover_image %} promo-card__media--placeholder{% endif %}">
+                {% if item.cover_image %}
+                  <img src="{{ item.cover_image.url }}" alt="{{ item.title }}" />
+                {% else %}
+                  <div class="promo-card__media-frame">
+                    <div class="promo-card__placeholder">
+                      <span>Акция</span>
+                    </div>
+                  </div>
                 {% endif %}
               </div>
-              <h3>{{ item.title }}</h3>
-              <p>{{ item.summary|default:item.details|striptags|truncatechars:160 }}</p>
+
+              <div class="promo-card__body">
+                <div class="meta promo-card__meta">
+                  {% if item.badge %}
+                    <span class="chip chip--feature">{{ item.badge }}</span>
+                  {% endif %}
+                  {% if item.brand %}
+                    <span>{{ item.brand }}</span>
+                  {% endif %}
+                  {% if item.category %}
+                    <span>{{ item.category }}</span>
+                  {% endif %}
+                </div>
+                <div class="promo-card__content">
+                  <h3 class="promo-card__title">{{ item.title }}</h3>
+                  <p class="promo-card__excerpt">
+                    {{ item.card_summary|default:item.summary|default:item.details|striptags|truncatechars:220 }}
+                  </p>
+                </div>
+                <div class="chips promo-card__footer">
+                  {% if item.formatted_promo_price %}
+                    <span class="chip">Промоцена: {{ item.formatted_promo_price }}</span>
+                  {% endif %}
+                  {% if item.formatted_benefit_value %}
+                    <span class="chip">{{ item.benefit_label }}: {{ item.formatted_benefit_value }}</span>
+                  {% endif %}
+                  {% if item.start_date or item.end_date %}
+                    <span class="chip">
+                      {% if item.start_date %}с {{ item.start_date|date:"d.m.Y" }}{% endif %}
+                      {% if item.end_date %} по {{ item.end_date|date:"d.m.Y" }}{% endif %}
+                    </span>
+                  {% endif %}
+                  {% if item.promo_code %}
+                    <span class="chip">Промокод: {{ item.promo_code }}</span>
+                  {% endif %}
+                </div>
+              </div>
             </article>
           </a>
         {% empty %}
@@ -102,28 +140,42 @@
       <div class="grid grid--three">
         {% for item in latest_learning %}
           <a class="card-link" href="{% url 'learning_detail' item.pk %}">
-            <article class="card">
-              <div class="meta">
-                <span>{{ item.get_material_type_display }}</span>
-              </div>
-              <h3>{{ item.title }}</h3>
-              <p>{{ item.summary|default:item.product_short_summary|default:item.product_full_description|default:item.content|striptags|truncatechars:160 }}</p>
-              {% if item.feature_tags.all or item.brands.all or item.categories.all or item.areas.all %}
-                <div class="chips">
-                  {% for tag in item.feature_tags.all %}
-                    <span class="chip chip--feature">{{ tag.name }}</span>
-                  {% endfor %}
-                  {% for brand in item.brands.all %}
-                    <span class="chip">{{ brand.name }}</span>
-                  {% endfor %}
-                  {% for category in item.categories.all %}
-                    <span class="chip">{{ category.name }}</span>
-                  {% endfor %}
-                  {% for area in item.areas.all %}
-                    <span class="chip">{{ area.name }}</span>
-                  {% endfor %}
+            <article class="card learning-card">
+              <div
+                class="learning-card__cover{% if item.cover_image %} learning-card__cover--image{% endif %}"
+                {% if item.cover_image %}
+                  style="--cover-image: url('{{ item.cover_image.url }}');"
+                {% endif %}
+              >
+                <div class="learning-card__cover-top">
+                  <span class="learning-card__type">{{ item.get_material_type_display }}</span>
+                  <span class="learning-card__open">Открыть</span>
                 </div>
-              {% endif %}
+              </div>
+
+              <div class="learning-card__body">
+                <h3>{{ item.title }}</h3>
+                {% with preview_text=item.summary|default:item.product_short_summary|default:item.product_full_description|default:item.content|striptags|truncatechars:180 %}
+                  <p class="learning-card__excerpt">{{ preview_text }}</p>
+                {% endwith %}
+
+                {% if item.feature_tags.all or item.brands.all or item.categories.all or item.areas.all %}
+                  <div class="chips learning-card__chips">
+                    {% for tag in item.feature_tags.all %}
+                      <span class="chip chip--feature">{{ tag.name }}</span>
+                    {% endfor %}
+                    {% for brand in item.brands.all %}
+                      <span class="chip">{{ brand.name }}</span>
+                    {% endfor %}
+                    {% for category in item.categories.all %}
+                      <span class="chip">{{ category.name }}</span>
+                    {% endfor %}
+                    {% for area in item.areas.all %}
+                      <span class="chip">{{ area.name }}</span>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
             </article>
           </a>
         {% empty %}

@@ -62,72 +62,46 @@
   </section>
 
   <section class="section">
-    <div class="container grid grid--promotions">
+    <div class="container promo-list-stack">
       {% for item in promotions %}
         <a class="card-link" href="{% url 'promotion_detail' item.slug %}">
-          <article class="card promo-card{% if item.is_featured %} promo-card--featured{% endif %}{% if item.is_preorder %} promo-card--preorder{% endif %}">
-            <div class="meta">
-              {% if item.badge %}
-                <span class="chip chip--feature">{{ item.badge }}</span>
-              {% endif %}
-              {% if item.brand %}
-                <span>{{ item.brand }}</span>
-              {% endif %}
-              {% if item.category %}
-                <span>{{ item.category }}</span>
+          <article class="card promo-card promo-card--row{% if item.is_featured %} promo-card--featured{% endif %}">
+            <div class="promo-card__media{% if not item.cover_image %} promo-card__media--placeholder{% endif %}">
+              {% if item.cover_image %}
+                <img src="{{ item.cover_image.url }}" alt="{{ item.title }}" />
+              {% else %}
+                <div class="promo-card__media-frame">
+                  <div class="promo-card__placeholder">
+                    <span>Акция</span>
+                  </div>
+                </div>
               {% endif %}
             </div>
-            <h3 class="promo-card__title">{{ item.title }}</h3>
-            <p class="promo-card__excerpt">{{ item.summary|default:item.details|striptags|truncatechars:220 }}</p>
-
-            {% if item.is_preorder %}
-              <div class="promo-card__stats">
-                <div class="promo-stat">
-                  <strong>{{ item.preorder_entries_count }}</strong>
-                  <span>заявок</span>
-                </div>
-                <div class="promo-stat">
-                  <strong>{{ item.preorder_models_count }}</strong>
-                  <span>моделей</span>
-                </div>
-                <div class="promo-stat">
-                  <strong>
-                    {% if item.preorder_latest_order_date %}
-                      {{ item.preorder_latest_order_date|date:"d.m" }}
-                    {% else %}
-                      ...
-                    {% endif %}
-                  </strong>
-                  <span>последний заказ</span>
-                </div>
-              </div>
-
-              {% if item.preorder_models_preview %}
-                <div class="promo-inline-list">
-                  {% for model_name in item.preorder_models_preview %}
-                    <span class="chip">{{ model_name|truncatechars:30 }}</span>
-                  {% endfor %}
-                </div>
-              {% endif %}
-
-              {% if item.preorder_status_counts %}
-                <div class="promo-status-list">
-                  {% for status, count in item.preorder_status_counts %}
-                    <span class="promo-status-pill">
-                      <strong>{{ count }}</strong>
-                      <span>{{ status|truncatechars:28 }}</span>
-                    </span>
-                  {% endfor %}
-                </div>
-              {% endif %}
-
-              <div class="chips">
-                {% if item.preorder_sheet_name %}
-                  <span class="chip">Лист: {{ item.preorder_sheet_name|truncatechars:28 }}</span>
+            <div class="promo-card__body">
+              <div class="meta promo-card__meta">
+                {% if item.badge %}
+                  <span class="chip chip--feature">{{ item.badge }}</span>
+                {% endif %}
+                {% if item.brand %}
+                  <span>{{ item.brand }}</span>
+                {% endif %}
+                {% if item.category %}
+                  <span>{{ item.category }}</span>
                 {% endif %}
               </div>
-            {% else %}
-              <div class="chips">
+              <div class="promo-card__content">
+                <h3 class="promo-card__title">{{ item.title }}</h3>
+                <p class="promo-card__excerpt">
+                  {{ item.card_summary|default:item.summary|default:item.details|striptags|truncatechars:220 }}
+                </p>
+              </div>
+              <div class="chips promo-card__footer">
+                {% if item.formatted_promo_price %}
+                  <span class="chip">Промоцена: {{ item.formatted_promo_price }}</span>
+                {% endif %}
+                {% if item.formatted_benefit_value %}
+                  <span class="chip">{{ item.benefit_label }}: {{ item.formatted_benefit_value }}</span>
+                {% endif %}
                 {% if item.start_date or item.end_date %}
                   <span class="chip">
                     {% if item.start_date %}с {{ item.start_date|date:"d.m.Y" }}{% endif %}
@@ -138,7 +112,7 @@
                   <span class="chip">Промокод: {{ item.promo_code }}</span>
                 {% endif %}
               </div>
-            {% endif %}
+            </div>
           </article>
         </a>
       {% empty %}

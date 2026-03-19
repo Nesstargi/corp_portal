@@ -10,9 +10,11 @@ def home(request):
     latest_news = News.objects.filter(is_published=True).prefetch_related(
         "brands", "product_categories", "feature_tags"
     )[:3]
-    latest_promotions = Promotion.objects.filter(is_published=True).order_by(
-        "-is_featured", "sort_order", "title"
-    )[:3]
+    latest_promotions = (
+        Promotion.objects.filter(is_published=True)
+        .exclude(promotion_kind=Promotion.KIND_PREORDER)
+        .order_by("-is_featured", "sort_order", "title")[:3]
+    )
     latest_learning = (
         LearningMaterial.objects.filter(is_published=True)
         .prefetch_related("brands", "categories", "areas", "feature_tags")[:3]
