@@ -20,6 +20,7 @@ urlpatterns = [
     path("promotions/", include("promotions.urls")),
     path("learning/", include("learning.urls")),
     path("search/", search_views.search, name="search"),
+    path("telegram/", include("telegram_bot.urls")),
 ]
 
 if settings.SERVE_MEDIA:

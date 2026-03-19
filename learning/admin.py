@@ -1,7 +1,8 @@
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 
 from catalog.widgets import RichTextToolbarWidget
+from telegram_bot.services import send_learning_notification, telegram_enabled
 
 from .models import (
     LearningBlock,
@@ -15,6 +16,12 @@ from .models import (
 
 
 class LearningMaterialAdminForm(forms.ModelForm):
+    send_telegram_notification = forms.BooleanField(
+        required=False,
+        label="Отправить в Telegram после сохранения",
+        help_text="Материал уйдет всем пользователям, которые уже запускали бота.",
+    )
+
     class Meta:
         model = LearningMaterial
         fields = "__all__"
@@ -174,6 +181,7 @@ class LearningMaterialAdmin(admin.ModelAdmin):
     list_editable = ("is_published",)
     readonly_fields = ("created_at", "updated_at")
     filter_horizontal = ("brands", "categories", "areas", "feature_tags")
+    actions = ("send_selected_to_telegram",)
     inlines = [
         ProductDescriptionImageInline,
         ProductReviewImageInline,
@@ -218,8 +226,9 @@ class LearningMaterialAdmin(admin.ModelAdmin):
         (
             "Тип материала и публикация",
             {
-                "fields": ("material_type", "is_published"),
+                "fields": ("material_type", "is_published", "send_telegram_notification"),
                 "classes": ("article-section", "section-material-mode"),
+                "description": "Если включить отправку, опубликованный материал уйдет всем пользователям Telegram-бота.",
             },
         ),
         (
@@ -264,6 +273,35 @@ class LearningMaterialAdmin(admin.ModelAdmin):
             "all": ("css/learning-product-admin.css",),
         }
         js = ("js/learning-product-admin.js",)
+
+    @admin.action(description="Отправить выбранные материалы в Telegram")
+    def send_selected_to_telegram(self, request, queryset):
+        if not telegram_enabled():
+            self.message_user(
+                request,
+                "Токен Telegram-бота не настроен.",
+                level=messages.ERROR,
+            )
+            return
+
+        total_sent = 0
+        total_failed = 0
+        skipped = 0
+
+        for material in queryset:
+            if not material.is_published:
+                skipped += 1
+                continue
+            report = send_learning_notification(material)
+            total_sent += report.sent
+            total_failed += report.failed
+
+        self.message_user(
+            request,
+            "Рассылка материалов завершена. "
+            f"Успешно: {total_sent}, не удалось: {total_failed}, пропущено неопубликованных: {skipped}.",
+            level=messages.SUCCESS if total_sent else messages.WARNING,
+        )
 
     @staticmethod
     def _has_class(item, class_name):
@@ -339,4 +377,33 @@ class LearningMaterialAdmin(admin.ModelAdmin):
             change=change,
             form_url=form_url,
             obj=obj,
+        )
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+
+        if not form.cleaned_data.get("send_telegram_notification"):
+            return
+
+        if not telegram_enabled():
+            self.message_user(
+                request,
+                "Материал сохранен, но токен Telegram-бота не настроен.",
+                level=messages.WARNING,
+            )
+            return
+
+        if not form.instance.is_published:
+            self.message_user(
+                request,
+                "Материал сохранен, но не отправлен: сначала включи показ на сайте.",
+                level=messages.WARNING,
+            )
+            return
+
+        report = send_learning_notification(form.instance)
+        self.message_user(
+            request,
+            f"Материал отправлен в Telegram. Успешно: {report.sent}, не удалось: {report.failed}.",
+            level=messages.SUCCESS if report.sent else messages.WARNING,
         )

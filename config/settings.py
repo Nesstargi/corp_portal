@@ -7,6 +7,24 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def load_env_file(path):
+    if not path.exists():
+        return
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("\"'")
+        os.environ.setdefault(key, value)
+
+
+load_env_file(BASE_DIR / ".env")
+
+
 def env_bool(name, default=False):
     value = os.getenv(name)
     if value is None:
@@ -47,6 +65,7 @@ INSTALLED_APPS = [
     "news",
     "learning",
     "quiz",
+    "telegram_bot",
     "users",
     "django.contrib.admin",
     "django.contrib.auth",
@@ -145,6 +164,10 @@ STORAGES = {
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 SERVE_MEDIA = env_bool("SERVE_MEDIA", default=DEBUG or ON_RENDER)
+
+SITE_URL = os.getenv("SITE_URL", "http://127.0.0.1:8000").rstrip("/")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "").strip()
 
 if not DEBUG:
     STORAGES["staticfiles"] = {

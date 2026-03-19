@@ -1,6 +1,7 @@
 from urllib.parse import parse_qs, urlparse
 
 from django.db import models
+from django.urls import reverse
 
 from catalog.models import Brand, FeatureTag, KnowledgeArea, ProductCategory
 
@@ -72,6 +73,19 @@ class LearningMaterial(models.Model):
 
     def __str__(self):
         return self.title
+
+    def get_absolute_url(self):
+        return reverse("learning_detail", args=[self.pk])
+
+    @property
+    def telegram_summary(self):
+        return (
+            self.summary
+            or self.product_short_summary
+            or self.product_full_description
+            or self.content
+            or ""
+        ).strip()
 
     @property
     def product_video_embed_url(self):
