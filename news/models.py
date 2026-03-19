@@ -5,6 +5,11 @@ from catalog.models import Brand, FeatureTag, ProductCategory
 
 
 class News(models.Model):
+    TELEGRAM_AUDIENCE_CHOICES = [
+        ("all", "Всем подписчикам"),
+        ("groups", "Только выбранным группам"),
+    ]
+
     CATEGORY_CHOICES = [
         ("product", "Новые модели"),
         ("corporate", "Корпоративные новости"),
@@ -42,6 +47,18 @@ class News(models.Model):
     feature_tags = models.ManyToManyField(
         FeatureTag,
         verbose_name="Какие фишки и метки показать",
+        related_name="news_items",
+        blank=True,
+    )
+    telegram_audience = models.CharField(
+        "Кому отправлять в Telegram",
+        max_length=20,
+        choices=TELEGRAM_AUDIENCE_CHOICES,
+        default="all",
+    )
+    telegram_target_groups = models.ManyToManyField(
+        "telegram_bot.TelegramAudienceGroup",
+        verbose_name="Группы подписчиков Telegram",
         related_name="news_items",
         blank=True,
     )

@@ -59,7 +59,12 @@ class NewsAdmin(admin.ModelAdmin):
     search_fields = ("title", "summary", "content")
     list_editable = ("is_published",)
     readonly_fields = ("created_at", "updated_at")
-    filter_horizontal = ("brands", "product_categories", "feature_tags")
+    filter_horizontal = (
+        "brands",
+        "product_categories",
+        "feature_tags",
+        "telegram_target_groups",
+    )
     inlines = [NewsBlockInline]
     actions = ("send_selected_to_telegram",)
     fieldsets = (
@@ -78,7 +83,11 @@ class NewsAdmin(admin.ModelAdmin):
         (
             "Уведомление в Telegram",
             {
-                "fields": ("send_telegram_notification",),
+                "fields": (
+                    "send_telegram_notification",
+                    "telegram_audience",
+                    "telegram_target_groups",
+                ),
                 "description": "Работает только для опубликованных новостей и пользователей, которые уже написали боту.",
             },
         ),

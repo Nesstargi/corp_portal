@@ -1,12 +1,31 @@
 from django.db import models
 
 
+class TelegramAudienceGroup(models.Model):
+    name = models.CharField("Название группы", max_length=120, unique=True)
+    description = models.TextField("Пояснение", blank=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Группа подписчиков Telegram"
+        verbose_name_plural = "Группы подписчиков Telegram"
+
+    def __str__(self):
+        return self.name
+
+
 class TelegramSubscriber(models.Model):
     chat_id = models.BigIntegerField("Chat ID", unique=True)
     username = models.CharField("Username", max_length=255, blank=True)
     first_name = models.CharField("Имя", max_length=255, blank=True)
     last_name = models.CharField("Фамилия", max_length=255, blank=True)
     language_code = models.CharField("Язык", max_length=32, blank=True)
+    groups = models.ManyToManyField(
+        TelegramAudienceGroup,
+        verbose_name="Группы подписчиков",
+        related_name="subscribers",
+        blank=True,
+    )
     is_active = models.BooleanField("Получает уведомления", default=True)
     is_blocked = models.BooleanField("Бот заблокирован", default=False)
     started_at = models.DateTimeField("Подписался", auto_now_add=True)
@@ -30,9 +49,26 @@ class TelegramSubscriber(models.Model):
 
 
 class TelegramBroadcast(models.Model):
+    TARGET_MODE_CHOICES = [
+        ("all", "Всем подписчикам"),
+        ("groups", "Только выбранным группам"),
+    ]
+
     title = models.CharField("Заголовок уведомления", max_length=220)
     message = models.TextField("Текст уведомления")
     link_url = models.URLField("Ссылка", blank=True)
+    target_mode = models.CharField(
+        "Кому отправлять",
+        max_length=20,
+        choices=TARGET_MODE_CHOICES,
+        default="all",
+    )
+    target_groups = models.ManyToManyField(
+        TelegramAudienceGroup,
+        verbose_name="Группы получателей",
+        related_name="broadcasts",
+        blank=True,
+    )
     is_sent = models.BooleanField("Уже отправлено", default=False)
     sent_count = models.PositiveIntegerField("Успешно отправлено", default=0)
     failed_count = models.PositiveIntegerField("Не удалось отправить", default=0)
@@ -48,4 +84,3 @@ class TelegramBroadcast(models.Model):
 
     def __str__(self):
         return self.title
-

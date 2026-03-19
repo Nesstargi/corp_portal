@@ -6,7 +6,7 @@ from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.utils import timezone
-from django.utils.html import strip_tags
+from django.utils.html import escape, strip_tags
 
 from .models import TelegramBroadcast, TelegramSubscriber
 
@@ -20,6 +20,14 @@ class TelegramSendReport:
     total: int = 0
     sent: int = 0
     failed: int = 0
+
+
+@dataclass
+class TelegramMessagePayload:
+    text: str
+    button_url: str = ""
+    button_text: str = "Открыть"
+    image_url: str = ""
 
 
 def telegram_enabled():
@@ -60,8 +68,14 @@ def _perform_api_call(method, payload=None):
 def _make_absolute_url(path):
     if not path:
         return ""
-    base_url = settings.SITE_URL.rstrip("/")
-    return f"{base_url}{path}"
+    return f"{settings.SITE_URL.rstrip('/')}{path}"
+
+
+def _absolute_media_url(file_field):
+    if not file_field:
+        return ""
+    url = getattr(file_field, "url", "")
+    return _make_absolute_url(url) if url else ""
 
 
 def _truncate_plain_text(text, limit=900):
@@ -71,17 +85,64 @@ def _truncate_plain_text(text, limit=900):
     return f"{clean_text[: limit - 1].rstrip()}…"
 
 
-def _send_message_to_subscriber(subscriber, text):
+def _build_reply_markup(button_text="", button_url=""):
+    if not button_text or not button_url:
+        return ""
+    return json.dumps(
+        {
+            "inline_keyboard": [
+                [
+                    {
+                        "text": button_text,
+                        "url": button_url,
+                    }
+                ]
+            ]
+        },
+        ensure_ascii=False,
+    )
+
+
+def _active_subscribers_queryset():
+    return TelegramSubscriber.objects.filter(is_active=True, is_blocked=False).distinct()
+
+
+def get_target_subscribers(target_mode="all", target_groups=None):
+    queryset = _active_subscribers_queryset()
+    if target_mode == "groups":
+        if target_groups is None:
+            return queryset.none()
+        group_ids = list(target_groups.values_list("id", flat=True))
+        if not group_ids:
+            return queryset.none()
+        return queryset.filter(groups__in=group_ids).distinct()
+    return queryset
+
+
+def _send_prepared_message_to_subscriber(subscriber, payload):
+    reply_markup = _build_reply_markup(payload.button_text, payload.button_url)
+
     try:
-        _perform_api_call(
-            "sendMessage",
-            {
+        if payload.image_url:
+            request_payload = {
                 "chat_id": subscriber.chat_id,
-                "text": text,
+                "photo": payload.image_url,
+                "caption": payload.text[:1024],
+                "parse_mode": "HTML",
+            }
+            if reply_markup:
+                request_payload["reply_markup"] = reply_markup
+            _perform_api_call("sendPhoto", request_payload)
+        else:
+            request_payload = {
+                "chat_id": subscriber.chat_id,
+                "text": payload.text,
                 "parse_mode": "HTML",
                 "disable_web_page_preview": "false",
-            },
-        )
+            }
+            if reply_markup:
+                request_payload["reply_markup"] = reply_markup
+            _perform_api_call("sendMessage", request_payload)
     except TelegramBotError as exc:
         error_text = str(exc).lower()
         if "bot was blocked by the user" in error_text or "chat not found" in error_text:
@@ -91,16 +152,18 @@ def _send_message_to_subscriber(subscriber, text):
         raise
 
 
-def send_text_to_subscribers(text, subscribers=None):
-    subscribers = subscribers or TelegramSubscriber.objects.filter(
-        is_active=True,
-        is_blocked=False,
-    )
+def _send_plain_text_to_subscriber(subscriber, text, button_url="", button_text="Открыть"):
+    payload = TelegramMessagePayload(text=text, button_url=button_url, button_text=button_text)
+    _send_prepared_message_to_subscriber(subscriber, payload)
+
+
+def send_payload_to_subscribers(payload, subscribers=None):
+    subscribers = subscribers or _active_subscribers_queryset()
     report = TelegramSendReport(total=subscribers.count())
 
     for subscriber in subscribers:
         try:
-            _send_message_to_subscriber(subscriber, text)
+            _send_prepared_message_to_subscriber(subscriber, payload)
             report.sent += 1
         except TelegramBotError:
             report.failed += 1
@@ -108,65 +171,74 @@ def send_text_to_subscribers(text, subscribers=None):
     return report
 
 
-def format_news_message(news):
+def _format_header(icon, title, subtitle):
+    lines = [f"{icon} <b>{escape(title)}</b>"]
+    if subtitle:
+        lines.append(f"<b>{escape(subtitle)}</b>")
+    return lines
+
+
+def build_news_payload(news):
     url = _make_absolute_url(news.get_absolute_url())
-    lines = [
-        "📰 <b>Новая новость</b>",
-        f"<b>{news.title}</b>",
-    ]
+    lines = _format_header("📰", "Новая новость", news.title)
 
     summary = _truncate_plain_text(news.telegram_summary, limit=500)
     if summary:
-        lines.append(summary)
+        lines.append(escape(summary))
 
-    if url:
-        lines.append("")
-        lines.append(f"<a href=\"{url}\">Открыть новость</a>")
+    return TelegramMessagePayload(
+        text="\n".join(lines),
+        button_url=url,
+        button_text="Открыть новость",
+        image_url=_absolute_media_url(news.cover_image),
+    )
 
-    return "\n".join(lines)
 
-
-def format_learning_message(material):
+def build_learning_payload(material):
     url = _make_absolute_url(material.get_absolute_url())
-    lines = [
-        "📘 <b>Новый материал</b>",
-        f"<b>{material.title}</b>",
-    ]
+    lines = _format_header("📘", "Новый материал", material.title)
 
     summary = _truncate_plain_text(material.telegram_summary, limit=500)
     if summary:
-        lines.append(summary)
+        lines.append(escape(summary))
 
-    if url:
-        lines.append("")
-        lines.append(f"<a href=\"{url}\">Открыть материал</a>")
+    return TelegramMessagePayload(
+        text="\n".join(lines),
+        button_url=url,
+        button_text="Открыть материал",
+        image_url=_absolute_media_url(material.cover_image),
+    )
 
-    return "\n".join(lines)
 
-
-def format_broadcast_message(broadcast):
-    lines = [f"📢 <b>{broadcast.title}</b>"]
+def build_broadcast_payload(broadcast):
+    lines = _format_header("📢", broadcast.title, "")
     message = _truncate_plain_text(broadcast.message, limit=700)
     if message:
-        lines.append(message)
+        lines.append(escape(message))
 
-    if broadcast.link_url:
-        lines.append("")
-        lines.append(f"<a href=\"{broadcast.link_url}\">Открыть ссылку</a>")
-
-    return "\n".join(lines)
+    return TelegramMessagePayload(
+        text="\n".join(lines),
+        button_url=broadcast.link_url,
+        button_text="Открыть ссылку",
+    )
 
 
 def send_news_notification(news):
-    return send_text_to_subscribers(format_news_message(news))
+    subscribers = get_target_subscribers(news.telegram_audience, news.telegram_target_groups)
+    return send_payload_to_subscribers(build_news_payload(news), subscribers=subscribers)
 
 
 def send_learning_notification(material):
-    return send_text_to_subscribers(format_learning_message(material))
+    subscribers = get_target_subscribers(
+        material.telegram_audience,
+        material.telegram_target_groups,
+    )
+    return send_payload_to_subscribers(build_learning_payload(material), subscribers=subscribers)
 
 
 def send_broadcast_notification(broadcast):
-    report = send_text_to_subscribers(format_broadcast_message(broadcast))
+    subscribers = get_target_subscribers(broadcast.target_mode, broadcast.target_groups)
+    report = send_payload_to_subscribers(build_broadcast_payload(broadcast), subscribers=subscribers)
     broadcast.is_sent = True
     broadcast.sent_count = report.sent
     broadcast.failed_count = report.failed
@@ -202,6 +274,38 @@ def update_subscriber_from_message(message):
     return subscriber
 
 
+def _build_latest_text():
+    from learning.models import LearningMaterial
+    from news.models import News
+
+    latest_news = News.objects.filter(is_published=True).order_by("-created_at")[:3]
+    latest_learning = LearningMaterial.objects.filter(is_published=True).order_by("-updated_at")[:3]
+
+    lines = ["🆕 <b>Последние обновления портала</b>"]
+
+    if latest_news:
+        lines.append("")
+        lines.append("<b>Новости</b>")
+        for item in latest_news:
+            lines.append(
+                f"• <a href=\"{escape(_make_absolute_url(item.get_absolute_url()))}\">{escape(item.title)}</a>"
+            )
+
+    if latest_learning:
+        lines.append("")
+        lines.append("<b>Материалы</b>")
+        for item in latest_learning:
+            lines.append(
+                f"• <a href=\"{escape(_make_absolute_url(item.get_absolute_url()))}\">{escape(item.title)}</a>"
+            )
+
+    if len(lines) == 1:
+        lines.append("")
+        lines.append("Пока ничего не опубликовано.")
+
+    return "\n".join(lines)
+
+
 def handle_update(update):
     message = update.get("message") or update.get("edited_message")
     if not message:
@@ -220,20 +324,27 @@ def handle_update(update):
         subscriber.is_active = True
         subscriber.is_blocked = False
         subscriber.save(update_fields=["is_active", "is_blocked", "last_interaction_at"])
-        _send_message_to_subscriber(
+        _send_plain_text_to_subscriber(
             subscriber,
             "Привет! Ты подписан на уведомления портала.\n\n"
             "Я буду присылать новые новости и материалы.\n"
-            "Если захочешь отключиться, отправь /stop.",
+            "Команды:\n"
+            "/latest — последние новости и материалы\n"
+            "/status — статус подписки\n"
+            "/stop — отключить уведомления",
+            button_url=settings.SITE_URL,
+            button_text="Открыть портал",
         )
         return
 
     if text.startswith("/stop"):
         subscriber.is_active = False
         subscriber.save(update_fields=["is_active", "last_interaction_at"])
-        _send_message_to_subscriber(
+        _send_plain_text_to_subscriber(
             subscriber,
             "Уведомления отключены. Если захочешь включить их снова, отправь /start.",
+            button_url=settings.SITE_URL,
+            button_text="Открыть портал",
         )
         return
 
@@ -241,18 +352,32 @@ def handle_update(update):
         status_text = (
             "Уведомления включены." if subscriber.is_active else "Уведомления сейчас выключены."
         )
-        _send_message_to_subscriber(
+        _send_plain_text_to_subscriber(
             subscriber,
-            f"{status_text}\n\n/start — включить\n/stop — выключить",
+            f"{status_text}\n\n/start — включить\n/stop — выключить\n/latest — последние материалы",
+            button_url=settings.SITE_URL,
+            button_text="Открыть портал",
         )
         return
 
-    _send_message_to_subscriber(
+    if text.startswith("/latest"):
+        _send_plain_text_to_subscriber(
+            subscriber,
+            _build_latest_text(),
+            button_url=settings.SITE_URL,
+            button_text="Перейти в портал",
+        )
+        return
+
+    _send_plain_text_to_subscriber(
         subscriber,
         "Я используюсь для уведомлений корпоративного портала.\n\n"
         "/start — включить уведомления\n"
         "/stop — выключить уведомления\n"
-        "/status — проверить статус",
+        "/status — проверить статус\n"
+        "/latest — последние новости и материалы",
+        button_url=settings.SITE_URL,
+        button_text="Открыть портал",
     )
 
 
@@ -265,4 +390,3 @@ def configure_webhook(webhook_url):
 
 def clear_webhook():
     return _perform_api_call("deleteWebhook")
-

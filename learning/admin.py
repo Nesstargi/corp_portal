@@ -180,7 +180,13 @@ class LearningMaterialAdmin(admin.ModelAdmin):
     )
     list_editable = ("is_published",)
     readonly_fields = ("created_at", "updated_at")
-    filter_horizontal = ("brands", "categories", "areas", "feature_tags")
+    filter_horizontal = (
+        "brands",
+        "categories",
+        "areas",
+        "feature_tags",
+        "telegram_target_groups",
+    )
     actions = ("send_selected_to_telegram",)
     inlines = [
         ProductDescriptionImageInline,
@@ -226,7 +232,13 @@ class LearningMaterialAdmin(admin.ModelAdmin):
         (
             "Тип материала и публикация",
             {
-                "fields": ("material_type", "is_published", "send_telegram_notification"),
+                "fields": (
+                    "material_type",
+                    "is_published",
+                    "send_telegram_notification",
+                    "telegram_audience",
+                    "telegram_target_groups",
+                ),
                 "classes": ("article-section", "section-material-mode"),
                 "description": "Если включить отправку, опубликованный материал уйдет всем пользователям Telegram-бота.",
             },

@@ -7,6 +7,11 @@ from catalog.models import Brand, FeatureTag, KnowledgeArea, ProductCategory
 
 
 class LearningMaterial(models.Model):
+    TELEGRAM_AUDIENCE_CHOICES = [
+        ("all", "Всем подписчикам"),
+        ("groups", "Только выбранным группам"),
+    ]
+
     MATERIAL_TYPE_CHOICES = [
         ("process", "Процесс"),
         ("product", "Товар"),
@@ -59,6 +64,18 @@ class LearningMaterial(models.Model):
     feature_tags = models.ManyToManyField(
         FeatureTag,
         verbose_name="Какие фишки и метки показать",
+        related_name="learning_materials",
+        blank=True,
+    )
+    telegram_audience = models.CharField(
+        "Кому отправлять в Telegram",
+        max_length=20,
+        choices=TELEGRAM_AUDIENCE_CHOICES,
+        default="all",
+    )
+    telegram_target_groups = models.ManyToManyField(
+        "telegram_bot.TelegramAudienceGroup",
+        verbose_name="Группы подписчиков Telegram",
         related_name="learning_materials",
         blank=True,
     )
