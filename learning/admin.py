@@ -31,7 +31,7 @@ class LearningMaterialAdminForm(forms.ModelForm):
     send_telegram_notification = forms.BooleanField(
         required=False,
         label="Отправить в Telegram после сохранения",
-        help_text="Материал уйдет всем пользователям, которые уже запускали бота.",
+        help_text="Материал можно отправить личным подписчикам, Telegram-группам или выбранной аудитории.",
     )
 
     class Meta:
@@ -65,11 +65,19 @@ class LearningMaterialAdminForm(forms.ModelForm):
         if cleaned_data.get("send_telegram_notification"):
             audience = cleaned_data.get("telegram_audience")
             groups = cleaned_data.get("telegram_target_groups")
-            if audience == "groups" and (not groups or not groups.exists()):
-                self.add_error(
-                    "telegram_target_groups",
-                    "Выбери хотя бы одну группу подписчиков Telegram.",
-                )
+            subscribers = cleaned_data.get("telegram_target_subscribers")
+            group_chats = cleaned_data.get("telegram_target_group_chats")
+            collections = cleaned_data.get("telegram_target_chat_collections")
+            if audience == "custom":
+                has_groups = bool(groups and groups.exists())
+                has_subscribers = bool(subscribers and subscribers.exists())
+                has_group_chats = bool(group_chats and group_chats.exists())
+                has_collections = bool(collections and collections.exists())
+                if not any([has_groups, has_subscribers, has_group_chats, has_collections]):
+                    self.add_error(
+                        "telegram_target_groups",
+                        "Для выбранной аудитории укажи хотя бы одного получателя, группу подписчиков, Telegram-группу или объединение групп.",
+                    )
 
         return cleaned_data
 
@@ -324,6 +332,8 @@ class LearningMaterialAdmin(
         "areas",
         "feature_tags",
         "telegram_target_groups",
+        "telegram_target_subscribers",
+        "telegram_target_group_chats",
         "telegram_target_chat_collections",
     )
     actions = (
@@ -385,13 +395,15 @@ class LearningMaterialAdmin(
                     "send_telegram_notification",
                     "telegram_audience",
                     "telegram_target_groups",
+                    "telegram_target_subscribers",
+                    "telegram_target_group_chats",
                     "telegram_target_chat_collections",
-                    "telegram_include_group_chats",
                 ),
                 "classes": ("article-section", "section-material-mode"),
                 "description": (
-                    "Если включить отправку, опубликованный материал уйдет "
-                    "личным подписчикам бота и, при необходимости, в Telegram-группы с активированным ботом."
+                    "Если включить отправку, опубликованный материал можно направить "
+                    "всем личным подписчикам, всем подписчикам вместе с Telegram-группами, "
+                    "только Telegram-группам или только выбранной аудитории."
                 ),
             },
         ),
@@ -659,3 +671,21 @@ class LearningMaterialAdmin(
                 item.pk = None
                 setattr(item, relation_field, clone)
                 item.save()
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        if db_field.name == "telegram_target_subscribers":
+            from telegram_bot.models import TelegramSubscriber
+
+            kwargs["queryset"] = TelegramSubscriber.objects.filter(
+                chat_type=TelegramSubscriber.CHAT_TYPE_PRIVATE
+            )
+        elif db_field.name == "telegram_target_group_chats":
+            from telegram_bot.models import TelegramSubscriber
+
+            kwargs["queryset"] = TelegramSubscriber.objects.filter(
+                chat_type__in=(
+                    TelegramSubscriber.CHAT_TYPE_GROUP,
+                    TelegramSubscriber.CHAT_TYPE_SUPERGROUP,
+                )
+            )
+        return super().formfield_for_manytomany(db_field, request, **kwargs)

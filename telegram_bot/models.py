@@ -94,9 +94,10 @@ class TelegramSubscriber(models.Model):
 
 class TelegramBroadcast(models.Model):
     TARGET_MODE_CHOICES = [
-        ("all", "Всем подписчикам"),
-        ("groups", "Только выбранным группам"),
+        ("all", "Всем личным подписчикам"),
+        ("all_with_groups", "Всем личным подписчикам и всем Telegram-группам"),
         ("group_chats", "Только Telegram-группам"),
+        ("custom", "Только выбранной аудитории"),
     ]
 
     title = models.CharField("Заголовок уведомления", max_length=220)
@@ -110,8 +111,20 @@ class TelegramBroadcast(models.Model):
     )
     target_groups = models.ManyToManyField(
         TelegramAudienceGroup,
-        verbose_name="Группы получателей",
+        verbose_name="Группы личных получателей",
         related_name="broadcasts",
+        blank=True,
+    )
+    target_subscribers = models.ManyToManyField(
+        TelegramSubscriber,
+        verbose_name="Отдельные получатели Telegram",
+        related_name="broadcasts_as_direct_recipient",
+        blank=True,
+    )
+    target_group_chats = models.ManyToManyField(
+        TelegramSubscriber,
+        verbose_name="Отдельные Telegram-группы",
+        related_name="broadcasts_as_group_recipient",
         blank=True,
     )
     target_chat_collections = models.ManyToManyField(

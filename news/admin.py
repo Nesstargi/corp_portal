@@ -27,7 +27,7 @@ class NewsAdminForm(forms.ModelForm):
     send_telegram_notification = forms.BooleanField(
         required=False,
         label="Отправить в Telegram после сохранения",
-        help_text="Новость уйдет всем пользователям, которые уже запускали бота.",
+        help_text="Новость можно отправить личным подписчикам, Telegram-группам или выбранной аудитории.",
     )
 
     class Meta:
@@ -55,14 +55,19 @@ class NewsAdminForm(forms.ModelForm):
         if cleaned_data.get("send_telegram_notification"):
             audience = cleaned_data.get("telegram_audience")
             groups = cleaned_data.get("telegram_target_groups")
+            subscribers = cleaned_data.get("telegram_target_subscribers")
+            group_chats = cleaned_data.get("telegram_target_group_chats")
             collections = cleaned_data.get("telegram_target_chat_collections")
-            if audience == "groups" and (not groups or not groups.exists()):
-                self.add_error(
-                    "telegram_target_groups",
-                    "Выбери хотя бы одну группу подписчиков Telegram.",
-                )
-            if audience == "group_chats" and collections and hasattr(collections, "exists") and not collections.exists():
-                cleaned_data["telegram_target_chat_collections"] = collections
+            if audience == "custom":
+                has_groups = bool(groups and groups.exists())
+                has_subscribers = bool(subscribers and subscribers.exists())
+                has_group_chats = bool(group_chats and group_chats.exists())
+                has_collections = bool(collections and collections.exists())
+                if not any([has_groups, has_subscribers, has_group_chats, has_collections]):
+                    self.add_error(
+                        "telegram_target_groups",
+                        "Для выбранной аудитории укажи хотя бы одного получателя, группу подписчиков, Telegram-группу или объединение групп.",
+                    )
 
         return cleaned_data
 
@@ -162,6 +167,8 @@ class NewsAdmin(
         "product_categories",
         "feature_tags",
         "telegram_target_groups",
+        "telegram_target_subscribers",
+        "telegram_target_group_chats",
         "telegram_target_chat_collections",
     )
     inlines = [NewsBlockInline]
@@ -203,13 +210,14 @@ class NewsAdmin(
                     "send_telegram_notification",
                     "telegram_audience",
                     "telegram_target_groups",
+                    "telegram_target_subscribers",
+                    "telegram_target_group_chats",
                     "telegram_target_chat_collections",
-                    "telegram_include_group_chats",
                 ),
                 "description": (
                     "Работает только для опубликованных новостей. "
-                    "Личные уведомления уходят тем, кто уже запускал бота, "
-                    "а групповые — в те Telegram-группы, где бот был активирован командой."
+                    "Можно отправить всем личным подписчикам, всем подписчикам вместе с Telegram-группами, "
+                    "только Telegram-группам или вручную выбрать нужную аудиторию."
                 ),
             },
         ),
@@ -346,3 +354,21 @@ class NewsAdmin(
             block.pk = None
             block.news = clone
             block.save()
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        if db_field.name == "telegram_target_subscribers":
+            from telegram_bot.models import TelegramSubscriber
+
+            kwargs["queryset"] = TelegramSubscriber.objects.filter(
+                chat_type=TelegramSubscriber.CHAT_TYPE_PRIVATE
+            )
+        elif db_field.name == "telegram_target_group_chats":
+            from telegram_bot.models import TelegramSubscriber
+
+            kwargs["queryset"] = TelegramSubscriber.objects.filter(
+                chat_type__in=(
+                    TelegramSubscriber.CHAT_TYPE_GROUP,
+                    TelegramSubscriber.CHAT_TYPE_SUPERGROUP,
+                )
+            )
+        return super().formfield_for_manytomany(db_field, request, **kwargs)

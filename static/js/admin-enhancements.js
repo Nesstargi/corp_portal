@@ -617,19 +617,20 @@
 
     var audienceRow = findFieldRow("id_telegram_audience");
     var groupsRow = findFieldRow("id_telegram_target_groups");
+    var subscribersRow = findFieldRow("id_telegram_target_subscribers");
+    var groupChatsRow = findFieldRow("id_telegram_target_group_chats");
     var chatCollectionsRow = findFieldRow("id_telegram_target_chat_collections");
     var includeGroupChatsRow = findFieldRow("id_telegram_include_group_chats");
     var enabled = sendNow.checked;
+    var isCustom = audience.value === "custom";
+    var isGroupChatsOnly = audience.value === "group_chats";
 
     setHidden(audienceRow, !enabled);
-    setHidden(groupsRow, !enabled || audience.value !== "groups");
-    setHidden(includeGroupChatsRow, !enabled || audience.value === "group_chats");
-    setHidden(
-      chatCollectionsRow,
-      !enabled ||
-        (audience.value !== "group_chats" &&
-          !(document.getElementById("id_telegram_include_group_chats") || {}).checked)
-    );
+    setHidden(groupsRow, !enabled || !isCustom);
+    setHidden(subscribersRow, !enabled || !isCustom);
+    setHidden(groupChatsRow, !enabled || (!isCustom && !isGroupChatsOnly));
+    setHidden(chatCollectionsRow, !enabled || (!isCustom && !isGroupChatsOnly));
+    setHidden(includeGroupChatsRow, true);
   }
 
   function toggleBroadcastTargetGroups() {
@@ -639,16 +640,18 @@
     }
 
     var groupsRow = findFieldRow("id_target_groups");
+    var subscribersRow = findFieldRow("id_target_subscribers");
+    var groupChatsRow = findFieldRow("id_target_group_chats");
     var chatCollectionsRow = findFieldRow("id_target_chat_collections");
     var includeGroupChatsRow = findFieldRow("id_include_group_chats");
+    var isCustom = targetMode.value === "custom";
+    var isGroupChatsOnly = targetMode.value === "group_chats";
 
-    setHidden(groupsRow, targetMode.value !== "groups");
-    setHidden(includeGroupChatsRow, targetMode.value === "group_chats");
-    setHidden(
-      chatCollectionsRow,
-      targetMode.value !== "group_chats" &&
-        !(document.getElementById("id_include_group_chats") || {}).checked
-    );
+    setHidden(groupsRow, !isCustom);
+    setHidden(subscribersRow, !isCustom);
+    setHidden(groupChatsRow, !isCustom && !isGroupChatsOnly);
+    setHidden(chatCollectionsRow, !isCustom && !isGroupChatsOnly);
+    setHidden(includeGroupChatsRow, true);
   }
 
   function togglePromotionBenefitField() {

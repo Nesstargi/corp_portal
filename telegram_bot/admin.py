@@ -14,12 +14,33 @@ class TelegramBroadcastAdminForm(forms.ModelForm):
     send_now = forms.BooleanField(
         required=False,
         label="Сразу отправить в Telegram",
-        help_text="После сохранения уведомление уйдет выбранной аудитории бота.",
+        help_text="После сохранения уведомление уйдет выбранной аудитории: пользователям, группам и объединениям групп.",
     )
 
     class Meta:
         model = TelegramBroadcast
         fields = "__all__"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        mode = cleaned_data.get("target_mode")
+        groups = cleaned_data.get("target_groups")
+        subscribers = cleaned_data.get("target_subscribers")
+        group_chats = cleaned_data.get("target_group_chats")
+        collections = cleaned_data.get("target_chat_collections")
+
+        if mode == "custom":
+            has_groups = bool(groups and groups.exists())
+            has_subscribers = bool(subscribers and subscribers.exists())
+            has_group_chats = bool(group_chats and group_chats.exists())
+            has_collections = bool(collections and collections.exists())
+            if not any([has_groups, has_subscribers, has_group_chats, has_collections]):
+                self.add_error(
+                    "target_groups",
+                    "Для выбранной аудитории укажи хотя бы одного получателя, группу подписчиков, Telegram-группу или объединение групп.",
+                )
+
+        return cleaned_data
 
 
 @admin.register(TelegramAudienceGroup)
@@ -130,7 +151,12 @@ class TelegramBroadcastAdmin(admin.ModelAdmin):
         "updated_at",
         "sent_at",
     )
-    filter_horizontal = ("target_groups", "target_chat_collections")
+    filter_horizontal = (
+        "target_groups",
+        "target_subscribers",
+        "target_group_chats",
+        "target_chat_collections",
+    )
     actions = ("send_selected_broadcasts",)
     fieldsets = (
         (
@@ -142,9 +168,14 @@ class TelegramBroadcastAdmin(admin.ModelAdmin):
                     "link_url",
                     "target_mode",
                     "target_groups",
+                    "target_subscribers",
+                    "target_group_chats",
                     "target_chat_collections",
-                    "include_group_chats",
                     "send_now",
+                ),
+                "description": (
+                    "Можно отправить уведомление всем личным подписчикам, всем подписчикам вместе с Telegram-группами, "
+                    "только Telegram-группам или вручную выбрать пользователей, группы подписчиков и объединения Telegram-групп."
                 ),
             },
         ),
@@ -203,3 +234,17 @@ class TelegramBroadcastAdmin(admin.ModelAdmin):
             f"Уведомление отправлено. Успешно: {report.sent}, не удалось: {report.failed}.",
             level=messages.SUCCESS if report.sent else messages.WARNING,
         )
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        if db_field.name == "target_subscribers":
+            kwargs["queryset"] = TelegramSubscriber.objects.filter(
+                chat_type=TelegramSubscriber.CHAT_TYPE_PRIVATE
+            )
+        elif db_field.name in {"target_group_chats", "chats"}:
+            kwargs["queryset"] = TelegramSubscriber.objects.filter(
+                chat_type__in=(
+                    TelegramSubscriber.CHAT_TYPE_GROUP,
+                    TelegramSubscriber.CHAT_TYPE_SUPERGROUP,
+                )
+            )
+        return super().formfield_for_manytomany(db_field, request, **kwargs)

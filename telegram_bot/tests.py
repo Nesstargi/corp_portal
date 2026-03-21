@@ -13,7 +13,7 @@ from .models import (
     TelegramChatCollection,
     TelegramSubscriber,
 )
-from .services import send_broadcast_notification
+from .services import send_broadcast_notification, send_news_notification
 
 
 @override_settings(
@@ -132,7 +132,7 @@ class TelegramWebhookTests(TestCase):
 @override_settings(TELEGRAM_BOT_TOKEN="test-token")
 class TelegramAudienceTests(TestCase):
     @patch("telegram_bot.services._send_prepared_message_to_subscriber")
-    def test_group_targeted_broadcast_hits_only_selected_group(self, mock_send):
+    def test_custom_broadcast_hits_only_selected_semantic_group(self, mock_send):
         retail = TelegramAudienceGroup.objects.create(name="Розница")
         office = TelegramAudienceGroup.objects.create(name="Офис")
 
@@ -145,7 +145,7 @@ class TelegramAudienceTests(TestCase):
         broadcast = TelegramBroadcast.objects.create(
             title="Тест",
             message="Сообщение",
-            target_mode="groups",
+            target_mode="custom",
         )
         broadcast.target_groups.add(retail)
 
@@ -157,7 +157,7 @@ class TelegramAudienceTests(TestCase):
         self.assertEqual(mock_send.call_args[0][0].pk, subscriber_retail.pk)
 
     @patch("telegram_bot.services._send_prepared_message_to_subscriber")
-    def test_broadcast_can_include_group_chats(self, mock_send):
+    def test_broadcast_can_send_to_all_private_and_group_chats(self, mock_send):
         subscriber_private = TelegramSubscriber.objects.create(chat_id=11, username="retail")
         subscriber_group = TelegramSubscriber.objects.create(
             chat_id=-100555,
@@ -168,8 +168,7 @@ class TelegramAudienceTests(TestCase):
         broadcast = TelegramBroadcast.objects.create(
             title="Тест",
             message="Сообщение",
-            target_mode="all",
-            include_group_chats=True,
+            target_mode="all_with_groups",
         )
 
         report = send_broadcast_notification(broadcast)
@@ -203,6 +202,31 @@ class TelegramAudienceTests(TestCase):
         self.assertEqual(mock_send.call_args[0][0].pk, subscriber_group.pk)
 
     @patch("telegram_bot.services._send_prepared_message_to_subscriber")
+    def test_custom_broadcast_can_target_direct_private_and_group_chat(self, mock_send):
+        subscriber_private = TelegramSubscriber.objects.create(chat_id=31, username="direct_user")
+        subscriber_group = TelegramSubscriber.objects.create(
+            chat_id=-100313,
+            chat_type=TelegramSubscriber.CHAT_TYPE_SUPERGROUP,
+            chat_title="Точечная группа",
+        )
+        TelegramSubscriber.objects.create(chat_id=32, username="ignored_user")
+
+        broadcast = TelegramBroadcast.objects.create(
+            title="Выбранные получатели",
+            message="Сообщение",
+            target_mode="custom",
+        )
+        broadcast.target_subscribers.add(subscriber_private)
+        broadcast.target_group_chats.add(subscriber_group)
+
+        report = send_broadcast_notification(broadcast)
+
+        self.assertEqual(report.sent, 2)
+        self.assertEqual(report.failed, 0)
+        sent_ids = {call.args[0].pk for call in mock_send.call_args_list}
+        self.assertEqual(sent_ids, {subscriber_private.pk, subscriber_group.pk})
+
+    @patch("telegram_bot.services._send_prepared_message_to_subscriber")
     def test_group_chat_collection_limits_group_delivery(self, mock_send):
         target_group = TelegramSubscriber.objects.create(
             chat_id=-100888,
@@ -230,3 +254,35 @@ class TelegramAudienceTests(TestCase):
         self.assertEqual(report.failed, 0)
         self.assertEqual(mock_send.call_count, 1)
         self.assertEqual(mock_send.call_args[0][0].pk, target_group.pk)
+
+    @patch("telegram_bot.services._send_prepared_message_to_subscriber")
+    def test_news_custom_audience_can_target_direct_users_and_group_collection(self, mock_send):
+        direct_user = TelegramSubscriber.objects.create(chat_id=41, username="direct_news_user")
+        target_group = TelegramSubscriber.objects.create(
+            chat_id=-100414,
+            chat_type=TelegramSubscriber.CHAT_TYPE_SUPERGROUP,
+            chat_title="Новости для группы",
+        )
+        TelegramSubscriber.objects.create(
+            chat_id=-100515,
+            chat_type=TelegramSubscriber.CHAT_TYPE_SUPERGROUP,
+            chat_title="Лишняя группа",
+        )
+        collection = TelegramChatCollection.objects.create(name="Новости: выбранные группы")
+        collection.chats.add(target_group)
+
+        news = News.objects.create(
+            title="Новая акция",
+            summary="Короткий анонс",
+            is_published=True,
+            telegram_audience="custom",
+        )
+        news.telegram_target_subscribers.add(direct_user)
+        news.telegram_target_chat_collections.add(collection)
+
+        report = send_news_notification(news)
+
+        self.assertEqual(report.sent, 2)
+        self.assertEqual(report.failed, 0)
+        sent_ids = {call.args[0].pk for call in mock_send.call_args_list}
+        self.assertEqual(sent_ids, {direct_user.pk, target_group.pk})

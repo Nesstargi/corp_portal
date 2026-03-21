@@ -8,7 +8,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.html import escape, strip_tags
 
-from .models import TelegramBroadcast, TelegramChatCollection, TelegramSubscriber
+from .models import TelegramBroadcast, TelegramSubscriber
 
 
 class TelegramBotError(Exception):
@@ -122,42 +122,87 @@ def _active_group_chats_queryset():
     ).distinct()
 
 
-def get_target_group_chats(target_chat_collections=None):
+def get_target_group_chats(target_group_chats=None, target_chat_collections=None, fallback_to_all=False):
     queryset = _active_group_chats_queryset()
-    if target_chat_collections is None:
-        return queryset
+    filters_applied = False
 
-    collection_ids = list(target_chat_collections.values_list("id", flat=True))
-    if not collection_ids:
-        return queryset
+    if target_group_chats is not None:
+        group_chat_ids = list(target_group_chats.values_list("id", flat=True))
+        if group_chat_ids:
+            queryset = queryset.filter(id__in=group_chat_ids)
+            filters_applied = True
 
-    return queryset.filter(chat_collections__in=collection_ids).distinct()
+    if target_chat_collections is not None:
+        collection_ids = list(target_chat_collections.values_list("id", flat=True))
+        if collection_ids:
+            collection_queryset = _active_group_chats_queryset().filter(
+                chat_collections__in=collection_ids
+            )
+            queryset = (queryset | collection_queryset).distinct() if filters_applied else collection_queryset
+            filters_applied = True
+
+    if not filters_applied and not fallback_to_all:
+        return _active_group_chats_queryset().none()
+
+    return queryset.distinct()
 
 
-def get_target_subscribers(
+def get_target_recipients(
     target_mode="all",
     target_groups=None,
-    include_group_chats=False,
+    target_subscribers=None,
+    target_group_chats=None,
     target_chat_collections=None,
+    include_group_chats=False,
 ):
-    queryset = _active_private_subscribers_queryset()
-    group_chats_queryset = get_target_group_chats(target_chat_collections)
+    private_queryset = _active_private_subscribers_queryset()
+    all_group_chats_queryset = _active_group_chats_queryset()
+
+    if target_mode == "all_with_groups":
+        return (private_queryset | all_group_chats_queryset).distinct()
 
     if target_mode == "group_chats":
-        return group_chats_queryset
+        return get_target_group_chats(
+            target_group_chats=target_group_chats,
+            target_chat_collections=target_chat_collections,
+            fallback_to_all=True,
+        )
 
-    if target_mode == "groups":
-        if target_groups is None:
-            return queryset.none()
-        group_ids = list(target_groups.values_list("id", flat=True))
-        if not group_ids:
-            return queryset.none()
-        queryset = queryset.filter(groups__in=group_ids).distinct()
+    if target_mode == "custom":
+        private_filters_applied = False
+        private_targets = private_queryset.none()
 
+        if target_groups is not None:
+            group_ids = list(target_groups.values_list("id", flat=True))
+            if group_ids:
+                private_targets = private_queryset.filter(groups__in=group_ids).distinct()
+                private_filters_applied = True
+
+        if target_subscribers is not None:
+            subscriber_ids = list(target_subscribers.values_list("id", flat=True))
+            if subscriber_ids:
+                subscriber_queryset = private_queryset.filter(id__in=subscriber_ids)
+                private_targets = (
+                    (private_targets | subscriber_queryset).distinct()
+                    if private_filters_applied
+                    else subscriber_queryset
+                )
+                private_filters_applied = True
+
+        group_targets = get_target_group_chats(
+            target_group_chats=target_group_chats,
+            target_chat_collections=target_chat_collections,
+            fallback_to_all=False,
+        )
+
+        if private_filters_applied:
+            return (private_targets | group_targets).distinct()
+        return group_targets
+
+    recipients = private_queryset
     if include_group_chats:
-        return (queryset | group_chats_queryset).distinct()
-
-    return queryset
+        recipients = (recipients | all_group_chats_queryset).distinct()
+    return recipients
 
 
 def _send_prepared_message_to_subscriber(subscriber, payload):
@@ -270,31 +315,37 @@ def build_broadcast_payload(broadcast):
 
 
 def send_news_notification(news):
-    subscribers = get_target_subscribers(
+    subscribers = get_target_recipients(
         news.telegram_audience,
         news.telegram_target_groups,
-        include_group_chats=news.telegram_include_group_chats,
+        news.telegram_target_subscribers,
+        news.telegram_target_group_chats,
         target_chat_collections=news.telegram_target_chat_collections,
+        include_group_chats=news.telegram_include_group_chats,
     )
     return send_payload_to_subscribers(build_news_payload(news), subscribers=subscribers)
 
 
 def send_learning_notification(material):
-    subscribers = get_target_subscribers(
+    subscribers = get_target_recipients(
         material.telegram_audience,
         material.telegram_target_groups,
-        include_group_chats=material.telegram_include_group_chats,
+        material.telegram_target_subscribers,
+        material.telegram_target_group_chats,
         target_chat_collections=material.telegram_target_chat_collections,
+        include_group_chats=material.telegram_include_group_chats,
     )
     return send_payload_to_subscribers(build_learning_payload(material), subscribers=subscribers)
 
 
 def send_broadcast_notification(broadcast):
-    subscribers = get_target_subscribers(
+    subscribers = get_target_recipients(
         broadcast.target_mode,
         broadcast.target_groups,
-        include_group_chats=broadcast.include_group_chats,
+        broadcast.target_subscribers,
+        broadcast.target_group_chats,
         target_chat_collections=broadcast.target_chat_collections,
+        include_group_chats=broadcast.include_group_chats,
     )
     report = send_payload_to_subscribers(build_broadcast_payload(broadcast), subscribers=subscribers)
     broadcast.is_sent = True
