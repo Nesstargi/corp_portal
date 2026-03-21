@@ -15,6 +15,78 @@ from .services import import_promotions_from_source
 
 
 class PromotionAdminForm(forms.ModelForm):
+    @staticmethod
+    def _format_period(start_date, end_date):
+        if start_date and end_date:
+            return f"с {start_date:%d.%m.%Y} по {end_date:%d.%m.%Y}"
+        if start_date:
+            return f"с {start_date:%d.%m.%Y}"
+        if end_date:
+            return f"до {end_date:%d.%m.%Y}"
+        return ""
+
+    @classmethod
+    def build_auto_summary(cls, cleaned_data):
+        title = str(cleaned_data.get("title") or "").strip()
+        if not title:
+            return ""
+
+        promotion_kind = cleaned_data.get("promotion_kind")
+        promo_price = Promotion._format_offer_value(cleaned_data.get("promo_price"))
+        gift_value = str(cleaned_data.get("benefit_value") or "").strip()
+        period = cls._format_period(
+            cleaned_data.get("start_date"),
+            cleaned_data.get("end_date"),
+        )
+
+        if promotion_kind == Promotion.KIND_GIFT:
+            parts = [f"Подарок к {title}"]
+            if gift_value:
+                parts.append(f"— {gift_value}")
+            if period:
+                parts.append(period)
+            return " ".join(parts).strip() + "."
+
+        if promotion_kind == Promotion.KIND_PREORDER:
+            parts = [f"Предзаказ на {title}"]
+            if promo_price:
+                parts.append(promo_price)
+            if period:
+                parts.append(period)
+            return " ".join(parts).strip() + "."
+
+        parts = [f"Скидка на {title}"]
+        if promo_price:
+            parts.append(promo_price)
+        if period:
+            parts.append(period)
+        return " ".join(parts).strip() + "."
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["benefit_value"].label = "Подарок"
+        self.fields["benefit_value"].help_text = (
+            "Заполняй только для акций с подарком. "
+            "Например: Наушники, сертификат или набор аксессуаров."
+        )
+        self.fields["cta_label"].help_text = (
+            "Текст кнопки на странице акции. "
+            "Например: Открыть условия, Перейти к товару, Смотреть предложение."
+        )
+        self.fields["cta_url"].help_text = (
+            "Ссылка, куда ведёт кнопка на странице акции. "
+            "Если ссылка заполнена, а текст кнопки нет, портал подставит «Открыть акцию»."
+        )
+        self.fields["is_featured"].help_text = (
+            "Такие акции поднимаются выше в списке и считаются более приоритетными."
+        )
+        self.fields["is_published"].help_text = (
+            "Если выключить, акция останется в админке, но исчезнет с сайта."
+        )
+        self.fields["sync_with_source"].help_text = (
+            "Если выключить, импорт из Google-таблицы больше не будет перезаписывать эту акцию."
+        )
+
     class Meta:
         model = Promotion
         fields = "__all__"
@@ -34,14 +106,16 @@ class PromotionAdminForm(forms.ModelForm):
         if promotion_kind == Promotion.KIND_PROMO_PRICE:
             if not promo_price:
                 self.add_error("promo_price", "Для акции со скидкой укажи промоцену.")
-            if not benefit_value:
-                self.add_error("benefit_value", "Для акции со скидкой укажи выгоду для клиента.")
 
         if promotion_kind == Promotion.KIND_GIFT and not benefit_value:
             self.add_error("benefit_value", "Для акции с подарком опиши, что получает клиент.")
 
         if start_date and end_date and end_date < start_date:
             self.add_error("end_date", "Дата окончания не может быть раньше даты начала.")
+
+        summary = str(cleaned_data.get("summary") or "").strip()
+        if not summary:
+            cleaned_data["summary"] = self.build_auto_summary(cleaned_data)
 
         return cleaned_data
 
@@ -180,7 +254,7 @@ class PromotionAdmin(
         "promotion_kind_badge",
         "badge",
         "brand",
-        "published_badge",
+        "is_published",
         "formatted_promo_price_admin",
         "formatted_benefit_value_admin",
         "start_date",
@@ -189,6 +263,7 @@ class PromotionAdmin(
         "sync_with_source",
         "public_link",
     )
+    list_display_links = ("title",)
     list_filter = (
         "promotion_kind",
         "is_published",
@@ -206,7 +281,7 @@ class PromotionAdmin(
         "category",
         "promo_code",
     )
-    list_editable = ("is_featured", "sync_with_source")
+    list_editable = ("is_published", "is_featured", "sync_with_source")
     readonly_fields = (
         "cover_preview",
         "card_preview",
@@ -222,21 +297,16 @@ class PromotionAdmin(
     actions = ("publish_selected", "unpublish_selected", "duplicate_selected")
     fieldsets = (
         (
-            "Что увидит сотрудник",
+            "1. Основа акции",
             {
                 "fields": (
                     "title",
                     "promotion_kind",
-                    "badge",
-                    ("cover_image", "cover_preview"),
-                    "card_preview",
-                    "summary",
-                    "details",
                 ),
             },
         ),
         (
-            "Параметры акции",
+            "2. Параметры акции",
             {
                 "fields": (
                     "brand",
@@ -248,10 +318,27 @@ class PromotionAdmin(
                     "end_date",
                     "sort_order",
                 ),
+                "description": "Поле «Подарок» показывается только для акций с подарком.",
             },
         ),
         (
-            "Кнопка и публикация",
+            "3. Как увидит сотрудник",
+            {
+                "fields": (
+                    "badge",
+                    ("cover_image", "cover_preview"),
+                    "card_preview",
+                    "summary",
+                    "details",
+                ),
+                "description": (
+                    "Краткое описание можно не писать вручную: портал сам соберёт шаблонный текст "
+                    "по типу акции, названию, цене, подарку и датам."
+                ),
+            },
+        ),
+        (
+            "4. Кнопка и публикация",
             {
                 "fields": (
                     "cta_label",
@@ -262,6 +349,10 @@ class PromotionAdmin(
                     "duplicate_link",
                     "history_link",
                     "sync_with_source",
+                ),
+                "description": (
+                    "Кнопка показывается на детальной странице акции. "
+                    "Здесь же настраивается, видна ли акция на сайте и можно ли обновлять её из импорта."
                 ),
             },
         ),
@@ -285,7 +376,7 @@ class PromotionAdmin(
         css = {
             "all": ("css/admin-enhancements.css",),
         }
-        js = ("js/admin-enhancements.js",)
+        js = ("js/admin-enhancements.js", "js/promotion-admin.js")
 
     @admin.display(description="Как будет выглядеть карточка")
     def card_preview(self, obj):

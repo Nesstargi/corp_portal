@@ -4,6 +4,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
+from django.utils.safestring import mark_safe
 
 
 class AdminPresentationMixin:
@@ -43,7 +44,7 @@ class AdminPresentationMixin:
                 image_url,
             )
         else:
-            image_markup = (
+            image_markup = mark_safe(
                 '<div class="admin-image-preview__canvas">'
                 '<img src="" alt="" class="is-hidden" />'
                 '<div class="admin-image-preview__placeholder">Изображение пока не добавлено.</div>'
@@ -150,15 +151,37 @@ class AdminTemplatesAndFiltersMixin:
 
     def get_quick_filter_links(self, request):
         links = []
+        filter_keys = [item["key"] for item in self.quick_filters]
+        current_filters = {
+            key: request.GET.get(key, "")
+            for key in filter_keys
+            if request.GET.get(key, "") not in ("", None)
+        }
+
         for item in self.quick_filters:
             key = item["key"]
             value = item.get("value", "")
-            current_value = request.GET.get(key, "")
+            query = request.GET.copy()
+
+            for filter_key in filter_keys:
+                query.pop(filter_key, None)
+
+            if value not in ("", None):
+                query[key] = value
+
+            encoded = query.urlencode()
+            url = "?" + encoded if encoded else ""
+
+            if value in ("", None):
+                is_active = not current_filters
+            else:
+                is_active = current_filters == {key: str(value)}
+
             links.append(
                 {
                     "label": item["label"],
-                    "url": self._build_query_url(request, key, value),
-                    "is_active": current_value == str(value),
+                    "url": url,
+                    "is_active": is_active,
                 }
             )
         return links

@@ -78,6 +78,7 @@ def promotion_list(request):
     selected_brand = request.GET.get("brand", "").strip()
     selected_status = request.GET.get("status", "").strip()
     selected_promo_type = request.GET.get("promo_type", "").strip()
+    today = timezone.localdate()
 
     promotions = Promotion.objects.filter(is_published=True).order_by(
         "-is_featured", "sort_order", "title"
@@ -97,7 +98,6 @@ def promotion_list(request):
     if selected_brand:
         promotions = promotions.filter(brand__iexact=selected_brand)
 
-    today = timezone.localdate()
     if selected_status == "active":
         promotions = promotions.filter(
             Q(start_date__isnull=True) | Q(start_date__lte=today),
@@ -107,6 +107,8 @@ def promotion_list(request):
         promotions = promotions.filter(start_date__gt=today)
     elif selected_status == "finished":
         promotions = promotions.filter(end_date__lt=today)
+    else:
+        promotions = promotions.filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
 
     promotion_type_tabs = build_promo_type_tabs(request, promotions)
     promotions = apply_promo_type_filter(promotions, selected_promo_type)

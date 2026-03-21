@@ -273,6 +273,11 @@ class Promotion(models.Model):
         return self.is_published
 
     @property
+    def is_finished(self):
+        today = timezone.localdate()
+        return bool(self.end_date and self.end_date < today)
+
+    @property
     def extra_data_items(self):
         excluded = {
             "title",

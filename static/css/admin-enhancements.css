@@ -157,10 +157,14 @@
 }
 
 .admin-quick-filter:hover,
+.admin-quick-filter:focus,
+.admin-quick-filter:active,
+.admin-quick-filter:visited,
 .admin-quick-filter.is-active {
-    color: #ff6a00;
-    border-color: rgba(255, 106, 0, 0.35);
-    background: #fff5ed;
+    color: #1f4f66;
+    border-color: #9db7c5;
+    background: #eef5f8;
+    text-decoration: none;
 }
 
 .admin-type-badge {
@@ -177,27 +181,27 @@
 }
 
 .admin-type-badge.is-orange {
-    color: #ff6a00;
-    border-color: rgba(255, 106, 0, 0.28);
-    background: #fff6ef;
+    color: #1f4f66;
+    border-color: rgba(31, 79, 102, 0.22);
+    background: #eef5f8;
 }
 
 .admin-type-badge.is-blue {
-    color: #2153a4;
-    border-color: rgba(33, 83, 164, 0.24);
-    background: #f3f7ff;
+    color: #1f4f66;
+    border-color: rgba(31, 79, 102, 0.22);
+    background: #eef5f8;
 }
 
 .admin-type-badge.is-green {
-    color: #0b6b2a;
-    border-color: rgba(11, 107, 42, 0.24);
-    background: #eefbf1;
+    color: #1f4f66;
+    border-color: rgba(31, 79, 102, 0.22);
+    background: #eef5f8;
 }
 
 .admin-type-badge.is-violet {
-    color: #6a38a5;
-    border-color: rgba(106, 56, 165, 0.22);
-    background: #f7f2ff;
+    color: #1f4f66;
+    border-color: rgba(31, 79, 102, 0.22);
+    background: #eef5f8;
 }
 
 .learning-admin-layout {
@@ -232,8 +236,8 @@
 }
 
 .learning-admin-anchor:hover {
-    background: #fff4eb;
-    color: #ff6a00;
+    background: #eef5f8;
+    color: #1f4f66;
 }
 
 .learning-admin-content {
@@ -273,8 +277,8 @@
 }
 
 .admin-draft-status__button:hover {
-    color: #ff6a00;
-    border-color: rgba(255, 106, 0, 0.35);
+    color: #1f4f66;
+    border-color: #9db7c5;
 }
 
 @media (max-width: 1200px) {

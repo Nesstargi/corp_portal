@@ -483,6 +483,8 @@ def map_row_to_promotion(source, row_number, raw_row):
     action_type = extract_value(normalized_row, "promotion_type")
     summary = extract_value(normalized_row, "summary")
     details = extract_value(normalized_row, "details")
+    promo_price = extract_value(normalized_row, "promo_price")
+    benefit_value = extract_value(normalized_row, "benefit_value")
     brand = extract_value(normalized_row, "brand") or infer_brand(
         title,
         summary,
@@ -492,8 +494,6 @@ def map_row_to_promotion(source, row_number, raw_row):
     )
     category = extract_value(normalized_row, "category")
     promo_code = extract_value(normalized_row, "promo_code")
-    promo_price = extract_value(normalized_row, "promo_price")
-    benefit_value = extract_value(normalized_row, "benefit_value")
     cta_url = extract_value(normalized_row, "cta_url")
     cta_label = extract_value(normalized_row, "cta_label")
     badge = extract_value(normalized_row, "badge")
