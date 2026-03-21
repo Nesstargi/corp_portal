@@ -132,6 +132,12 @@ class TelegramBroadcastAdmin(admin.ModelAdmin):
         ),
     )
 
+    class Media:
+        css = {
+            "all": ("css/admin-enhancements.css",),
+        }
+        js = ("js/admin-enhancements.js",)
+
     @admin.action(description="Отправить выбранные уведомления в Telegram")
     def send_selected_broadcasts(self, request, queryset):
         total_sent = 0

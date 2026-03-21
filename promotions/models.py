@@ -4,6 +4,7 @@ import re
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from django.db import models
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import strip_tags
 from django.utils.text import slugify
@@ -212,6 +213,38 @@ class Promotion(models.Model):
     def __str__(self):
         return self.title
 
+    def get_absolute_url(self):
+        return reverse("promotion_detail", args=[self.slug])
+
+    @staticmethod
+    def _build_unique_catalog_slug(model, value):
+        base_slug = slugify(value, allow_unicode=True) or model.__name__.lower()
+        slug = base_slug
+        counter = 2
+        while model.objects.filter(slug=slug).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        return slug
+
+    def _sync_catalog_brand(self):
+        brand_name = str(self.brand or "").strip()
+        if not brand_name:
+            return
+
+        from catalog.models import Brand
+
+        existing = Brand.objects.filter(name__iexact=brand_name).first()
+        if existing:
+            if existing.name != brand_name:
+                existing.name = brand_name
+                existing.save(update_fields=["name", "slug"])
+            return
+
+        Brand.objects.create(
+            name=brand_name,
+            slug=self._build_unique_catalog_slug(Brand, brand_name),
+        )
+
     def save(self, *args, **kwargs):
         if not self.slug:
             base_slug = slugify(self.title) or "promotion"
@@ -228,6 +261,7 @@ class Promotion(models.Model):
             self.cta_label = "Открыть акцию"
 
         super().save(*args, **kwargs)
+        self._sync_catalog_brand()
 
     @property
     def is_active_now(self):
@@ -417,6 +451,16 @@ class Promotion(models.Model):
         return self._format_offer_value(self.resolved_benefit_value)
 
     @property
+    def formatted_active_period(self):
+        if self.start_date and self.end_date:
+            return f"с {self.start_date:%d.%m.%Y} по {self.end_date:%d.%m.%Y}"
+        if self.start_date:
+            return f"с {self.start_date:%d.%m.%Y}"
+        if self.end_date:
+            return f"до {self.end_date:%d.%m.%Y}"
+        return ""
+
+    @property
     def benefit_display_mode(self):
         value = str(self.resolved_benefit_value or "").strip()
         if not value:
@@ -443,6 +487,22 @@ class Promotion(models.Model):
     @property
     def plain_details(self):
         return strip_tags(self.details or "").strip()
+
+    @property
+    def benefit_summary(self):
+        benefit_value = self.formatted_benefit_value
+        if not benefit_value:
+            return ""
+
+        prefix = (
+            "Подарок при покупке у нас"
+            if self.benefit_label == "Подарок"
+            else "Выгода при покупке у нас"
+        )
+        period = self.formatted_active_period
+        if period:
+            return f"{prefix} {period} — {benefit_value}."
+        return f"{prefix} — {benefit_value}."
 
     @property
     def card_summary(self):
@@ -481,5 +541,13 @@ class Promotion(models.Model):
             summary,
             flags=re.IGNORECASE,
         )
+        if self.resolved_benefit_value:
+            formatted_benefit = re.escape(str(self.resolved_benefit_value).strip())
+            summary = re.sub(
+                rf"^\+?\s*{formatted_benefit}\.?\s*$",
+                "",
+                summary,
+                flags=re.IGNORECASE,
+            )
         summary = re.sub(r"\s{2,}", " ", summary).strip(" .")
         return summary or self.plain_details

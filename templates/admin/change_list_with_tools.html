@@ -1,0 +1,21 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools-items %}
+  {% for preset in admin_template_presets %}
+    <li>
+      <a href="add/?template={{ preset.key }}">{{ preset.label }}</a>
+    </li>
+  {% endfor %}
+  {{ block.super }}
+{% endblock %}
+
+{% block result_list %}
+  {% if admin_quick_filter_links %}
+    <div class="admin-quick-filters">
+      {% for item in admin_quick_filter_links %}
+        <a class="admin-quick-filter{% if item.is_active %} is-active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+      {% endfor %}
+    </div>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

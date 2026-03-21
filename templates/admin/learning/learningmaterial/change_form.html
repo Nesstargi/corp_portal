@@ -46,20 +46,37 @@
     {{ adminform.form.non_field_errors }}
 {% endif %}
 
+<div class="learning-admin-layout">
+  <aside class="learning-admin-nav">
+    <div class="learning-admin-nav__title">Быстрая навигация</div>
+    <a class="learning-admin-anchor" href="#learning-section-preview">1. Превью</a>
+    <a class="learning-admin-anchor" href="#learning-section-mode">Публикация</a>
+    <a class="learning-admin-anchor product-only" href="#learning-section-full-description">2. Полное описание</a>
+    <a class="learning-admin-anchor product-only" href="#learning-section-video-review">3. Видеообзор</a>
+    <a class="learning-admin-anchor product-only" href="#learning-section-text-review">4. Обзор текстом</a>
+    <a class="learning-admin-anchor product-only" href="#learning-section-features">5. Фишки</a>
+    <a class="learning-admin-anchor product-only" href="#learning-section-scripts">6. Скрипты продаж</a>
+    <a class="learning-admin-anchor product-only" href="#product-specifications-section">7. Характеристики</a>
+    <a class="learning-admin-anchor product-only" href="#learning-section-summary">8. Резюмирование</a>
+    <a class="learning-admin-anchor" href="#learning-section-links">Связи и метки</a>
+    <a class="learning-admin-anchor general-only" href="#learning-section-general-content">Обычный материал</a>
+  </aside>
+
+  <div class="learning-admin-content">
 {% if preview_fieldset %}
-  <div class="learning-admin-section">
+  <div class="learning-admin-section" id="learning-section-preview">
     {% include "admin/includes/fieldset.html" with fieldset=preview_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=0 %}
   </div>
 {% endif %}
 
 {% if material_mode_fieldset %}
-  <div class="learning-admin-section">
+  <div class="learning-admin-section" id="learning-section-mode">
     {% include "admin/includes/fieldset.html" with fieldset=material_mode_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=1 %}
   </div>
 {% endif %}
 
 {% if full_description_fieldset %}
-  <div class="learning-admin-section product-only">
+  <div class="learning-admin-section product-only" id="learning-section-full-description">
     {% include "admin/includes/fieldset.html" with fieldset=full_description_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=2 %}
   </div>
 {% endif %}
@@ -71,13 +88,13 @@
 {% endif %}
 
 {% if video_review_fieldset %}
-  <div class="learning-admin-section product-only">
+  <div class="learning-admin-section product-only" id="learning-section-video-review">
     {% include "admin/includes/fieldset.html" with fieldset=video_review_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=3 %}
   </div>
 {% endif %}
 
 {% if text_review_fieldset %}
-  <div class="learning-admin-section product-only">
+  <div class="learning-admin-section product-only" id="learning-section-text-review">
     {% include "admin/includes/fieldset.html" with fieldset=text_review_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=4 %}
   </div>
 {% endif %}
@@ -89,37 +106,42 @@
 {% endif %}
 
 {% if product_features_inline %}
-  <div class="learning-admin-section product-only">
+  <div class="learning-admin-section product-only" id="learning-section-features">
     {% include product_features_inline.opts.template with inline_admin_formset=product_features_inline %}
   </div>
 {% endif %}
 
 {% if product_scripts_inline %}
-  <div class="learning-admin-section product-only">
+  <div class="learning-admin-section product-only" id="learning-section-scripts">
     {% include product_scripts_inline.opts.template with inline_admin_formset=product_scripts_inline %}
   </div>
 {% endif %}
 
 {% if product_specs_inline %}
-  <div class="learning-admin-section product-only">
+  <div
+    class="learning-admin-section product-only"
+    id="product-specifications-section"
+    {% if product_specs_prefix %}data-inline-prefix="{{ product_specs_prefix }}"{% endif %}
+  >
+    {{ category_characteristics_map|json_script:"category-characteristics-map" }}
     {% include product_specs_inline.opts.template with inline_admin_formset=product_specs_inline %}
   </div>
 {% endif %}
 
 {% if short_summary_fieldset %}
-  <div class="learning-admin-section product-only">
+  <div class="learning-admin-section product-only" id="learning-section-summary">
     {% include "admin/includes/fieldset.html" with fieldset=short_summary_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=5 %}
   </div>
 {% endif %}
 
 {% if links_fieldset %}
-  <div class="learning-admin-section">
+  <div class="learning-admin-section" id="learning-section-links">
     {% include "admin/includes/fieldset.html" with fieldset=links_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=6 %}
   </div>
 {% endif %}
 
 {% if general_content_fieldset %}
-  <div class="learning-admin-section general-only">
+  <div class="learning-admin-section general-only" id="learning-section-general-content">
     {% include "admin/includes/fieldset.html" with fieldset=general_content_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=7 %}
   </div>
 {% endif %}
@@ -135,6 +157,9 @@
     {% include "admin/includes/fieldset.html" with fieldset=system_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=8 %}
   </div>
 {% endif %}
+
+  </div>
+</div>
 
 {% submit_row %}
 

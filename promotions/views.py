@@ -76,7 +76,6 @@ def build_promo_type_tabs(request, queryset):
 def promotion_list(request):
     search_query = request.GET.get("q", "").strip()
     selected_brand = request.GET.get("brand", "").strip()
-    selected_category = request.GET.get("category", "").strip()
     selected_status = request.GET.get("status", "").strip()
     selected_promo_type = request.GET.get("promo_type", "").strip()
 
@@ -97,9 +96,6 @@ def promotion_list(request):
 
     if selected_brand:
         promotions = promotions.filter(brand__iexact=selected_brand)
-
-    if selected_category:
-        promotions = promotions.filter(category__iexact=selected_category)
 
     today = timezone.localdate()
     if selected_status == "active":
@@ -122,12 +118,6 @@ def promotion_list(request):
         .values_list("brand", flat=True)
         .distinct()
     )
-    categories = (
-        filter_source.exclude(category="")
-        .order_by("category")
-        .values_list("category", flat=True)
-        .distinct()
-    )
 
     return render(
         request,
@@ -135,10 +125,8 @@ def promotion_list(request):
         {
             "promotions": promotions,
             "brands": brands,
-            "categories": categories,
             "search_query": search_query,
             "selected_brand": selected_brand,
-            "selected_category": selected_category,
             "selected_status": selected_status,
             "selected_promo_type": selected_promo_type,
             "promotion_type_tabs": promotion_type_tabs,

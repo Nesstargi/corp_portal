@@ -41,10 +41,49 @@ class Brand(BaseDirectory):
         verbose_name_plural = "Бренды"
 
 
+class ProductCharacteristic(BaseDirectory):
+    class Meta(BaseDirectory.Meta):
+        verbose_name = "Характеристика"
+        verbose_name_plural = "Характеристики"
+
+
 class ProductCategory(BaseDirectory):
+    characteristics = models.ManyToManyField(
+        "ProductCharacteristic",
+        through="ProductCategoryCharacteristic",
+        verbose_name="Назначенные характеристики",
+        related_name="product_categories",
+        blank=True,
+    )
+
     class Meta(BaseDirectory.Meta):
         verbose_name = "Категория товара"
         verbose_name_plural = "Категории товаров"
+
+
+class ProductCategoryCharacteristic(models.Model):
+    category = models.ForeignKey(
+        ProductCategory,
+        on_delete=models.CASCADE,
+        related_name="characteristic_links",
+        verbose_name="Категория товара",
+    )
+    characteristic = models.ForeignKey(
+        ProductCharacteristic,
+        on_delete=models.CASCADE,
+        related_name="category_links",
+        verbose_name="Характеристика",
+    )
+    sort_order = models.PositiveIntegerField("Порядок", default=0)
+
+    class Meta:
+        ordering = ["sort_order", "characteristic__name"]
+        unique_together = ("category", "characteristic")
+        verbose_name = "Связь категории и характеристики"
+        verbose_name_plural = "Связи категорий и характеристик"
+
+    def __str__(self):
+        return f"{self.category.name} -> {self.characteristic.name}"
 
 
 class KnowledgeArea(BaseDirectory):

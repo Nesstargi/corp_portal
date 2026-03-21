@@ -9,12 +9,12 @@
     <div class="container">
       <span class="eyebrow">Акции</span>
       <h1>Актуальные акции</h1>
-      <p class="lead">Собранные в одном месте промо-предложения, которые можно быстро найти, открыть и уточнить через админку.</p>
+      <p class="lead">Наши самые выгодные промо-предложениея. Для улучшения поиска воспользуйтесь фильтром.</p>
 
       <form class="filters" method="get">
         <div class="filter-field">
           <label for="q">Поиск</label>
-          <input id="q" name="q" type="text" value="{{ search_query }}" placeholder="Например: Trade-in, 0-0-24, Apple" />
+          <input id="q" name="q" type="text" value="{{ search_query }}" />
         </div>
         <div class="filter-field">
           <label for="brand">Бренд</label>
@@ -22,15 +22,6 @@
             <option value="">Все бренды</option>
             {% for brand in brands %}
               <option value="{{ brand }}" {% if selected_brand == brand %}selected{% endif %}>{{ brand }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="filter-field">
-          <label for="category">Категория</label>
-          <select id="category" name="category">
-            <option value="">Все категории</option>
-            {% for category in categories %}
-              <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category }}</option>
             {% endfor %}
           </select>
         </div>
@@ -43,8 +34,10 @@
             <option value="finished" {% if selected_status == "finished" %}selected{% endif %}>Завершённые</option>
           </select>
         </div>
-        <button class="button" type="submit">Применить</button>
-        <a class="button button--ghost" href="{% url 'promotion_list' %}">Сбросить</a>
+        <div class="filters__actions">
+          <button class="button" type="submit">Применить</button>
+          <a class="button button--ghost" href="{% url 'promotion_list' %}">Сбросить</a>
+        </div>
       </form>
 
       <div class="promo-tabs" aria-label="Тип акции">
@@ -83,7 +76,7 @@
                   <span class="chip chip--feature">{{ item.badge }}</span>
                 {% endif %}
                 {% if item.brand %}
-                  <span>{{ item.brand }}</span>
+                  <span class="chip chip--feature">{{ item.brand }}</span>
                 {% endif %}
                 {% if item.category %}
                   <span>{{ item.category }}</span>
@@ -92,7 +85,7 @@
               <div class="promo-card__content">
                 <h3 class="promo-card__title">{{ item.title }}</h3>
                 <p class="promo-card__excerpt">
-                  {{ item.card_summary|default:item.summary|default:item.details|striptags|truncatechars:220 }}
+                  {{ item.benefit_summary|default:item.card_summary|default:item.summary|default:item.details|striptags|truncatechars:220 }}
                 </p>
               </div>
               <div class="chips promo-card__footer">

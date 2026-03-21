@@ -3,7 +3,7 @@ from urllib.parse import parse_qs, urlparse
 from django.db import models
 from django.urls import reverse
 
-from catalog.models import Brand, FeatureTag, KnowledgeArea, ProductCategory
+from catalog.models import Brand, FeatureTag, KnowledgeArea, ProductCategory, ProductCharacteristic
 
 
 class LearningMaterial(models.Model):
@@ -242,6 +242,14 @@ class ProductSpecification(models.Model):
         verbose_name="Материал",
     )
     sort_order = models.PositiveIntegerField("Порядок", default=0)
+    characteristic = models.ForeignKey(
+        ProductCharacteristic,
+        related_name="material_specifications",
+        on_delete=models.SET_NULL,
+        verbose_name="Характеристика",
+        blank=True,
+        null=True,
+    )
     name = models.CharField("Название характеристики", max_length=220)
     value = models.CharField("Значение", max_length=255)
 
@@ -250,8 +258,13 @@ class ProductSpecification(models.Model):
         verbose_name = "Характеристика товара"
         verbose_name_plural = "Характеристики товара"
 
+    def save(self, *args, **kwargs):
+        if self.characteristic:
+            self.name = self.characteristic.name
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return self.name
+        return self.characteristic.name if self.characteristic else self.name
 
 
 class LearningBlock(models.Model):

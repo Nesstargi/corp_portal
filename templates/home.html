@@ -95,7 +95,7 @@
                     <span class="chip chip--feature">{{ item.badge }}</span>
                   {% endif %}
                   {% if item.brand %}
-                    <span>{{ item.brand }}</span>
+                    <span class="chip chip--feature">{{ item.brand }}</span>
                   {% endif %}
                   {% if item.category %}
                     <span>{{ item.category }}</span>
@@ -104,7 +104,7 @@
                 <div class="promo-card__content">
                   <h3 class="promo-card__title">{{ item.title }}</h3>
                   <p class="promo-card__excerpt">
-                    {{ item.card_summary|default:item.summary|default:item.details|striptags|truncatechars:220 }}
+                    {{ item.benefit_summary|default:item.card_summary|default:item.summary|default:item.details|striptags|truncatechars:220 }}
                   </p>
                 </div>
                 <div class="chips promo-card__footer">

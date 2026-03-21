@@ -1,6 +1,13 @@
 from django import forms
 from django.contrib import admin, messages
+from django.utils.html import format_html, strip_tags
 
+from catalog.admin_mixins import (
+    AdminDuplicateMixin,
+    AdminPresentationMixin,
+    AdminTemplatesAndFiltersMixin,
+    render_admin_card_preview,
+)
 from catalog.widgets import RichTextToolbarWidget
 
 from .models import Promotion, PromotionSource
@@ -15,6 +22,28 @@ class PromotionAdminForm(forms.ModelForm):
             "summary": RichTextToolbarWidget(attrs={"rows": 5}),
             "details": RichTextToolbarWidget(attrs={"rows": 10}),
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        promotion_kind = cleaned_data.get("promotion_kind")
+        promo_price = str(cleaned_data.get("promo_price") or "").strip()
+        benefit_value = str(cleaned_data.get("benefit_value") or "").strip()
+        start_date = cleaned_data.get("start_date")
+        end_date = cleaned_data.get("end_date")
+
+        if promotion_kind == Promotion.KIND_PROMO_PRICE:
+            if not promo_price:
+                self.add_error("promo_price", "Для акции со скидкой укажи промоцену.")
+            if not benefit_value:
+                self.add_error("benefit_value", "Для акции со скидкой укажи выгоду для клиента.")
+
+        if promotion_kind == Promotion.KIND_GIFT and not benefit_value:
+            self.add_error("benefit_value", "Для акции с подарком опиши, что получает клиент.")
+
+        if start_date and end_date and end_date < start_date:
+            self.add_error("end_date", "Дата окончания не может быть раньше даты начала.")
+
+        return cleaned_data
 
 
 @admin.action(description="Импортировать акции из выбранных источников")
@@ -108,21 +137,57 @@ class PromotionSourceAdmin(admin.ModelAdmin):
 
 
 @admin.register(Promotion)
-class PromotionAdmin(admin.ModelAdmin):
+class PromotionAdmin(
+    AdminDuplicateMixin,
+    AdminTemplatesAndFiltersMixin,
+    AdminPresentationMixin,
+    admin.ModelAdmin,
+):
     form = PromotionAdminForm
+    image_recommendation = (1600, 900)
+    template_presets = (
+        {
+            "key": "discount",
+            "label": "Создать: акция со скидкой",
+            "initial": {
+                "promotion_kind": "promo_price",
+                "badge": "Скидка",
+                "title": "Новая акция со скидкой",
+            },
+        },
+        {
+            "key": "gift",
+            "label": "Создать: акция с подарком",
+            "initial": {
+                "promotion_kind": "gift",
+                "badge": "Подарок",
+                "title": "Новая акция с подарком",
+            },
+        },
+    )
+    quick_filters = (
+        {"label": "Все", "key": "is_published__exact", "value": ""},
+        {"label": "Опубликованные", "key": "is_published__exact", "value": "1"},
+        {"label": "Скрытые", "key": "is_published__exact", "value": "0"},
+        {"label": "Скидка", "key": "promotion_kind__exact", "value": "promo_price"},
+        {"label": "Подарок", "key": "promotion_kind__exact", "value": "gift"},
+        {"label": "Без изображения", "key": "cover_image__isnull", "value": "True"},
+        {"label": "Важные", "key": "is_featured__exact", "value": "1"},
+    )
     list_display = (
+        "cover_thumb",
         "title",
-        "promotion_kind",
+        "promotion_kind_badge",
         "badge",
         "brand",
-        "category",
-        "promo_price",
-        "benefit_value",
+        "published_badge",
+        "formatted_promo_price_admin",
+        "formatted_benefit_value_admin",
         "start_date",
         "end_date",
         "is_featured",
-        "is_published",
         "sync_with_source",
+        "public_link",
     )
     list_filter = (
         "promotion_kind",
@@ -141,8 +206,20 @@ class PromotionAdmin(admin.ModelAdmin):
         "category",
         "promo_code",
     )
-    list_editable = ("is_featured", "is_published", "sync_with_source")
-    readonly_fields = ("created_at", "updated_at", "imported_at", "source", "source_row_key")
+    list_editable = ("is_featured", "sync_with_source")
+    readonly_fields = (
+        "cover_preview",
+        "card_preview",
+        "public_link",
+        "duplicate_link",
+        "history_link",
+        "created_at",
+        "updated_at",
+        "imported_at",
+        "source",
+        "source_row_key",
+    )
+    actions = ("publish_selected", "unpublish_selected", "duplicate_selected")
     fieldsets = (
         (
             "Что увидит сотрудник",
@@ -151,7 +228,8 @@ class PromotionAdmin(admin.ModelAdmin):
                     "title",
                     "promotion_kind",
                     "badge",
-                    "cover_image",
+                    ("cover_image", "cover_preview"),
+                    "card_preview",
                     "summary",
                     "details",
                 ),
@@ -180,6 +258,9 @@ class PromotionAdmin(admin.ModelAdmin):
                     "cta_url",
                     "is_featured",
                     "is_published",
+                    "public_link",
+                    "duplicate_link",
+                    "history_link",
                     "sync_with_source",
                 ),
             },
@@ -199,3 +280,63 @@ class PromotionAdmin(admin.ModelAdmin):
             },
         ),
     )
+
+    class Media:
+        css = {
+            "all": ("css/admin-enhancements.css",),
+        }
+        js = ("js/admin-enhancements.js",)
+
+    @admin.display(description="Как будет выглядеть карточка")
+    def card_preview(self, obj):
+        description = strip_tags(obj.benefit_summary or obj.card_summary or obj.summary or "").strip()
+        chips = [obj.badge, obj.brand]
+        footer = [obj.formatted_promo_price, obj.formatted_benefit_value]
+        return render_admin_card_preview(
+            obj.title,
+            description[:180],
+            chips=chips,
+            footer=footer,
+        )
+
+    @admin.display(description="Тип")
+    def promotion_kind_badge(self, obj):
+        colors = {
+            "promo_price": "is-orange",
+            "gift": "is-blue",
+            "preorder": "is-violet",
+        }
+        label = obj.get_promotion_kind_display() if obj.promotion_kind else "Не указан"
+        return format_html(
+            '<span class="admin-type-badge {}">{}</span>',
+            colors.get(obj.promotion_kind, "is-violet"),
+            label,
+        )
+
+    @admin.display(description="Промоцена")
+    def formatted_promo_price_admin(self, obj):
+        return obj.formatted_promo_price or "—"
+
+    @admin.display(description="Выгода")
+    def formatted_benefit_value_admin(self, obj):
+        return obj.formatted_benefit_value or "—"
+
+    @admin.action(description="Опубликовать выбранные акции")
+    def publish_selected(self, request, queryset):
+        updated = queryset.update(is_published=True)
+        self.message_user(request, f"Опубликовано акций: {updated}.", level=messages.SUCCESS)
+
+    @admin.action(description="Скрыть выбранные акции")
+    def unpublish_selected(self, request, queryset):
+        updated = queryset.update(is_published=False)
+        self.message_user(request, f"Скрыто акций: {updated}.", level=messages.SUCCESS)
+
+    @admin.action(description="Создать копии выбранных акций")
+    def duplicate_selected(self, request, queryset):
+        duplicated = 0
+
+        for promotion in queryset:
+            self.clone_object(request, promotion)
+            duplicated += 1
+
+        self.message_user(request, f"Создано копий акций: {duplicated}.", level=messages.SUCCESS)

@@ -1,6 +1,18 @@
+from collections import defaultdict
+
 from django import forms
 from django.contrib import admin, messages
+from django.forms.models import BaseInlineFormSet
+from django.utils.html import format_html
+from django.utils.html import strip_tags
 
+from catalog.admin_mixins import (
+    AdminDuplicateMixin,
+    AdminPresentationMixin,
+    AdminTemplatesAndFiltersMixin,
+    render_admin_card_preview,
+)
+from catalog.models import ProductCategoryCharacteristic
 from catalog.widgets import RichTextToolbarWidget
 from telegram_bot.services import send_learning_notification, telegram_enabled
 
@@ -32,6 +44,35 @@ class LearningMaterialAdminForm(forms.ModelForm):
             "product_short_summary": RichTextToolbarWidget(attrs={"rows": 5}),
         }
 
+    def clean(self):
+        cleaned_data = super().clean()
+        material_type = cleaned_data.get("material_type")
+
+        if material_type == "product":
+            required_fields = {
+                "summary": "Добавь краткое описание для карточки товара.",
+                "product_full_description": "Добавь полное описание товара.",
+                "product_short_summary": "Добавь краткое резюмирование.",
+            }
+            for field_name, message in required_fields.items():
+                if not str(cleaned_data.get(field_name) or "").strip():
+                    self.add_error(field_name, message)
+
+            categories = cleaned_data.get("categories")
+            if not categories:
+                self.add_error("categories", "Выбери хотя бы одну категорию товара.")
+
+        if cleaned_data.get("send_telegram_notification"):
+            audience = cleaned_data.get("telegram_audience")
+            groups = cleaned_data.get("telegram_target_groups")
+            if audience == "groups" and (not groups or not groups.exists()):
+                self.add_error(
+                    "telegram_target_groups",
+                    "Выбери хотя бы одну группу подписчиков Telegram.",
+                )
+
+        return cleaned_data
+
 
 class LearningBlockAdminForm(forms.ModelForm):
     class Meta:
@@ -59,6 +100,42 @@ class ProductSalesScriptAdminForm(forms.ModelForm):
         widgets = {
             "script_text": RichTextToolbarWidget(attrs={"rows": 4}),
         }
+
+
+class ProductSpecificationInlineFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+
+        material_type = str(
+            self.data.get("material_type") or getattr(self.instance, "material_type", "")
+        )
+        if material_type != "product":
+            return
+
+        filled_specifications = 0
+
+        for form in self.forms:
+            if not hasattr(form, "cleaned_data"):
+                continue
+            if form.cleaned_data.get("DELETE"):
+                continue
+
+            characteristic = form.cleaned_data.get("characteristic")
+            value = str(form.cleaned_data.get("value") or "").strip()
+
+            if characteristic and value:
+                filled_specifications += 1
+                continue
+
+            if characteristic and not value:
+                form.add_error("value", "Укажи значение характеристики.")
+            elif value and not characteristic:
+                form.add_error("characteristic", "Выбери характеристику из базы.")
+
+        if filled_specifications == 0:
+            raise forms.ValidationError(
+                "Для товарного материала добавь хотя бы одну характеристику со значением."
+            )
 
 
 class ProductDescriptionImageInline(admin.StackedInline):
@@ -133,11 +210,13 @@ class ProductSalesScriptInline(admin.StackedInline):
 
 class ProductSpecificationInline(admin.TabularInline):
     model = ProductSpecification
-    extra = 3
+    formset = ProductSpecificationInlineFormSet
+    extra = 0
     classes = ("product-only", "section-product-specifications")
     verbose_name = "Характеристика"
     verbose_name_plural = "7. Характеристики"
-    fields = ("sort_order", "name", "value")
+    fields = ("sort_order", "characteristic", "value")
+    autocomplete_fields = ("characteristic",)
 
 
 class LearningBlockInline(admin.StackedInline):
@@ -165,10 +244,60 @@ class LearningBlockInline(admin.StackedInline):
 
 
 @admin.register(LearningMaterial)
-class LearningMaterialAdmin(admin.ModelAdmin):
+class LearningMaterialAdmin(
+    AdminDuplicateMixin,
+    AdminTemplatesAndFiltersMixin,
+    AdminPresentationMixin,
+    admin.ModelAdmin,
+):
     form = LearningMaterialAdminForm
     change_form_template = "admin/learning/learningmaterial/change_form.html"
-    list_display = ("title", "material_type", "updated_at", "is_published")
+    image_recommendation = (1600, 900)
+    template_presets = (
+        {
+            "key": "product",
+            "label": "Создать: товар",
+            "initial": {
+                "material_type": "product",
+                "title": "Новый товарный материал",
+                "summary": "Короткое описание товара для карточки.",
+            },
+        },
+        {
+            "key": "process",
+            "label": "Создать: процесс",
+            "initial": {
+                "material_type": "process",
+                "title": "Новый процесс",
+                "summary": "Коротко опиши, чему посвящён материал.",
+            },
+        },
+        {
+            "key": "instruction",
+            "label": "Создать: инструкция",
+            "initial": {
+                "material_type": "instruction",
+                "title": "Новая инструкция",
+                "summary": "Коротко опиши, что сотрудник найдёт внутри.",
+            },
+        },
+    )
+    quick_filters = (
+        {"label": "Все", "key": "is_published__exact", "value": ""},
+        {"label": "Опубликованные", "key": "is_published__exact", "value": "1"},
+        {"label": "Скрытые", "key": "is_published__exact", "value": "0"},
+        {"label": "Товары", "key": "material_type__exact", "value": "product"},
+        {"label": "Процессы", "key": "material_type__exact", "value": "process"},
+        {"label": "Без обложки", "key": "cover_image__isnull", "value": "True"},
+    )
+    list_display = (
+        "cover_thumb",
+        "title",
+        "material_type_badge",
+        "published_badge",
+        "updated_at",
+        "public_link",
+    )
     list_filter = ("material_type", "is_published", "updated_at")
     search_fields = (
         "title",
@@ -178,8 +307,15 @@ class LearningMaterialAdmin(admin.ModelAdmin):
         "product_text_review",
         "product_short_summary",
     )
-    list_editable = ("is_published",)
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = (
+        "cover_preview",
+        "card_preview",
+        "public_link",
+        "duplicate_link",
+        "history_link",
+        "created_at",
+        "updated_at",
+    )
     filter_horizontal = (
         "brands",
         "categories",
@@ -187,7 +323,12 @@ class LearningMaterialAdmin(admin.ModelAdmin):
         "feature_tags",
         "telegram_target_groups",
     )
-    actions = ("send_selected_to_telegram",)
+    actions = (
+        "publish_selected",
+        "unpublish_selected",
+        "duplicate_selected",
+        "send_selected_to_telegram",
+    )
     inlines = [
         ProductDescriptionImageInline,
         ProductReviewImageInline,
@@ -200,7 +341,7 @@ class LearningMaterialAdmin(admin.ModelAdmin):
         (
             "1. Краткое описание для превью и название",
             {
-                "fields": ("title", "summary", "cover_image"),
+                "fields": ("title", "summary", ("cover_image", "cover_preview"), "card_preview"),
                 "classes": ("article-section", "section-preview"),
                 "description": "Сначала название, затем короткое описание для карточки и списка материалов.",
             },
@@ -235,6 +376,9 @@ class LearningMaterialAdmin(admin.ModelAdmin):
                 "fields": (
                     "material_type",
                     "is_published",
+                    "public_link",
+                    "duplicate_link",
+                    "history_link",
                     "send_telegram_notification",
                     "telegram_audience",
                     "telegram_target_groups",
@@ -282,9 +426,63 @@ class LearningMaterialAdmin(admin.ModelAdmin):
 
     class Media:
         css = {
-            "all": ("css/learning-product-admin.css",),
+            "all": ("css/learning-product-admin.css", "css/admin-enhancements.css"),
         }
-        js = ("js/learning-product-admin.js",)
+        js = ("js/admin-enhancements.js", "js/learning-product-admin.js")
+
+    @admin.display(description="Как будет выглядеть карточка")
+    def card_preview(self, obj):
+        description = strip_tags(
+            obj.summary
+            or obj.product_short_summary
+            or obj.product_full_description
+            or obj.content
+            or ""
+        ).strip()
+        chips = [obj.get_material_type_display()]
+        if obj.pk:
+            chips.extend(tag.name for tag in obj.feature_tags.all()[:2])
+        return render_admin_card_preview(
+            obj.title,
+            description[:180],
+            chips=chips,
+        )
+
+    @admin.display(description="Тип")
+    def material_type_badge(self, obj):
+        colors = {
+            "product": "is-blue",
+            "process": "is-green",
+            "instruction": "is-violet",
+            "promotion": "is-orange",
+            "credit": "is-orange",
+            "reference": "is-violet",
+        }
+        return format_html(
+            '<span class="admin-type-badge {}">{}</span>',
+            colors.get(obj.material_type, "is-violet"),
+            obj.get_material_type_display(),
+        )
+
+    @admin.action(description="Опубликовать выбранные материалы")
+    def publish_selected(self, request, queryset):
+        updated = queryset.update(is_published=True)
+        self.message_user(request, f"Опубликовано материалов: {updated}.", level=messages.SUCCESS)
+
+    @admin.action(description="Скрыть выбранные материалы")
+    def unpublish_selected(self, request, queryset):
+        updated = queryset.update(is_published=False)
+        self.message_user(request, f"Скрыто материалов: {updated}.", level=messages.SUCCESS)
+
+    @admin.action(description="Создать копии выбранных материалов")
+    def duplicate_selected(self, request, queryset):
+        duplicated = 0
+
+        for material in queryset:
+            self.clone_object(request, material)
+            duplicated += 1
+
+        self.message_user(request, f"Создано копий материалов: {duplicated}.", level=messages.SUCCESS)
 
     @admin.action(description="Отправить выбранные материалы в Telegram")
     def send_selected_to_telegram(self, request, queryset):
@@ -334,6 +532,19 @@ class LearningMaterialAdmin(admin.ModelAdmin):
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
         adminform = context.get("adminform")
         inline_admin_formsets = context.get("inline_admin_formsets", [])
+        category_characteristics_map = defaultdict(list)
+
+        for link in (
+            ProductCategoryCharacteristic.objects.select_related("characteristic")
+            .order_by("category_id", "sort_order", "characteristic__name")
+        ):
+            category_characteristics_map[str(link.category_id)].append(
+                {
+                    "id": link.characteristic_id,
+                    "name": link.characteristic.name,
+                    "sort_order": link.sort_order,
+                }
+            )
 
         if adminform:
             context.update(
@@ -379,8 +590,13 @@ class LearningMaterialAdmin(admin.ModelAdmin):
                     "general_blocks_inline": self._find_inline(
                         inline_admin_formsets, "section-general-blocks"
                     ),
+                    "category_characteristics_map": dict(category_characteristics_map),
                 }
             )
+
+            product_specs_inline = context.get("product_specs_inline")
+            if product_specs_inline:
+                context["product_specs_prefix"] = product_specs_inline.formset.prefix
 
         return super().render_change_form(
             request,
@@ -419,3 +635,19 @@ class LearningMaterialAdmin(admin.ModelAdmin):
             f"Материал отправлен в Telegram. Успешно: {report.sent}, не удалось: {report.failed}.",
             level=messages.SUCCESS if report.sent else messages.WARNING,
         )
+
+    def clone_related_objects(self, request, source, clone):
+        related_sets = (
+            ("product_description_images", "material"),
+            ("product_review_images", "material"),
+            ("product_features", "material"),
+            ("product_sales_scripts", "material"),
+            ("product_specifications", "material"),
+            ("blocks", "material"),
+        )
+
+        for related_name, relation_field in related_sets:
+            for item in getattr(source, related_name).all():
+                item.pk = None
+                setattr(item, relation_field, clone)
+                item.save()

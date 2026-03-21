@@ -788,8 +788,15 @@ h3 {
     align-items: end;
 }
 
+.filters__actions {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+}
+
 .filter-field {
     min-width: 190px;
+    flex: 1 1 220px;
     display: grid;
     gap: 6px;
 }
@@ -848,6 +855,11 @@ h3 {
     border-color: var(--color-accent);
     color: var(--color-accent);
     background: #ffffff;
+}
+
+.filters .button,
+.filters .button--ghost {
+    min-height: 46px;
 }
 
 .stream-content > * + * {
@@ -1370,6 +1382,10 @@ blockquote {
     .search-bar {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .filters__actions {
+        flex-direction: column;
     }
 
     .promo-tabs {
