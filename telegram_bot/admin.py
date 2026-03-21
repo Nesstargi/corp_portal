@@ -1,7 +1,12 @@
 from django import forms
 from django.contrib import admin, messages
 
-from .models import TelegramAudienceGroup, TelegramBroadcast, TelegramSubscriber
+from .models import (
+    TelegramAudienceGroup,
+    TelegramBroadcast,
+    TelegramChatCollection,
+    TelegramSubscriber,
+)
 from .services import send_broadcast_notification
 
 
@@ -28,27 +33,53 @@ class TelegramAudienceGroupAdmin(admin.ModelAdmin):
     subscriber_count.short_description = "Подписчиков"
 
 
+@admin.register(TelegramChatCollection)
+class TelegramChatCollectionAdmin(admin.ModelAdmin):
+    list_display = ("name", "chat_count")
+    search_fields = ("name", "description")
+    filter_horizontal = ("chats",)
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        if db_field.name == "chats":
+            kwargs["queryset"] = TelegramSubscriber.objects.filter(
+                chat_type__in=(
+                    TelegramSubscriber.CHAT_TYPE_GROUP,
+                    TelegramSubscriber.CHAT_TYPE_SUPERGROUP,
+                )
+            )
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
+
+    def chat_count(self, obj):
+        return obj.chats.count()
+
+    chat_count.short_description = "Telegram-групп"
+
+
 @admin.register(TelegramSubscriber)
 class TelegramSubscriberAdmin(admin.ModelAdmin):
     list_display = (
         "display_name",
+        "chat_type",
+        "chat_title",
         "chat_id",
         "is_active",
         "is_blocked",
         "group_list",
         "last_interaction_at",
     )
-    list_filter = ("is_active", "is_blocked", "language_code", "groups")
-    search_fields = ("username", "first_name", "last_name", "chat_id")
+    list_filter = ("chat_type", "is_active", "is_blocked", "language_code", "groups")
+    search_fields = ("username", "first_name", "last_name", "chat_title", "chat_id")
     list_editable = ("is_active", "is_blocked")
     readonly_fields = ("started_at", "last_interaction_at")
     filter_horizontal = ("groups",)
     fieldsets = (
         (
-            "Подписчик",
+            "Получатель",
             {
                 "fields": (
                     "chat_id",
+                    "chat_type",
+                    "chat_title",
                     "username",
                     "first_name",
                     "last_name",
@@ -99,7 +130,7 @@ class TelegramBroadcastAdmin(admin.ModelAdmin):
         "updated_at",
         "sent_at",
     )
-    filter_horizontal = ("target_groups",)
+    filter_horizontal = ("target_groups", "target_chat_collections")
     actions = ("send_selected_broadcasts",)
     fieldsets = (
         (
@@ -111,6 +142,8 @@ class TelegramBroadcastAdmin(admin.ModelAdmin):
                     "link_url",
                     "target_mode",
                     "target_groups",
+                    "target_chat_collections",
+                    "include_group_chats",
                     "send_now",
                 ),
             },

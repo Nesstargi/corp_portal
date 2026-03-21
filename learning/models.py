@@ -10,6 +10,7 @@ class LearningMaterial(models.Model):
     TELEGRAM_AUDIENCE_CHOICES = [
         ("all", "Всем подписчикам"),
         ("groups", "Только выбранным группам"),
+        ("group_chats", "Только Telegram-группам"),
     ]
 
     MATERIAL_TYPE_CHOICES = [
@@ -78,6 +79,16 @@ class LearningMaterial(models.Model):
         verbose_name="Группы подписчиков Telegram",
         related_name="learning_materials",
         blank=True,
+    )
+    telegram_target_chat_collections = models.ManyToManyField(
+        "telegram_bot.TelegramChatCollection",
+        verbose_name="Объединения Telegram-групп",
+        related_name="learning_materials",
+        blank=True,
+    )
+    telegram_include_group_chats = models.BooleanField(
+        "Также отправлять в группы Telegram",
+        default=False,
     )
     created_at = models.DateTimeField("Когда создано", auto_now_add=True)
     updated_at = models.DateTimeField("Когда изменено", auto_now=True)

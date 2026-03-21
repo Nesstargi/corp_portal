@@ -325,6 +325,25 @@
     return String(field.value || "").trim();
   }
 
+  function getRichTextValue(fieldId) {
+    var field = document.getElementById(fieldId);
+    if (!field) {
+      return "";
+    }
+
+    var widget = field.closest("[data-rich-text-widget]");
+    if (!widget) {
+      return String(field.value || "").trim();
+    }
+
+    var surface = widget.querySelector("[data-editor-surface]");
+    if (!surface) {
+      return String(field.value || "").trim();
+    }
+
+    return String(surface.innerText || surface.textContent || field.value || "").trim();
+  }
+
   function getSelectedOptionLabel(fieldId) {
     var field = document.getElementById(fieldId);
     if (!field || !field.options || field.selectedIndex < 0) {
@@ -355,35 +374,139 @@
     return [parts[2], parts[1], parts[0]].join(".");
   }
 
-  function getBenefitLabel() {
-    var kind = getTextValue("id_promotion_kind");
-    var benefit = getTextValue("id_benefit_value").toLowerCase();
-    if (kind === "gift" || benefit.indexOf("подар") !== -1) {
-      return "Подарок";
+  function formatMoneyValue(value) {
+    var raw = String(value || "").trim();
+    if (!raw) {
+      return "";
     }
-    return "Скидка";
+
+    if (raw.indexOf("%") !== -1) {
+      return raw;
+    }
+
+    if (/^[\d\s.,]+$/.test(raw)) {
+      var digits = raw.replace(/[^\d]/g, "");
+      if (digits) {
+        return Number(digits).toLocaleString("ru-RU") + " BYN";
+      }
+    }
+
+    return raw;
   }
 
-  function buildPromotionSummary() {
-    var benefitValue = getTextValue("id_benefit_value");
-    if (!benefitValue) {
-      return truncateText(getTextValue("id_summary") || getTextValue("id_details"), 180);
-    }
-
+  function buildPromotionPeriodText() {
     var startDate = formatDateInput(getTextValue("id_start_date"));
     var endDate = formatDateInput(getTextValue("id_end_date"));
-    var prefix = getBenefitLabel() === "Подарок" ? "Подарок при покупке у нас" : "Выгода при покупке у нас";
 
     if (startDate && endDate) {
-      return prefix + " с " + startDate + " по " + endDate + " — " + benefitValue + ".";
+      return "с " + startDate + " по " + endDate;
     }
     if (startDate) {
-      return prefix + " с " + startDate + " — " + benefitValue + ".";
+      return "с " + startDate;
     }
     if (endDate) {
-      return prefix + " до " + endDate + " — " + benefitValue + ".";
+      return "до " + endDate;
     }
-    return prefix + " — " + benefitValue + ".";
+    return "";
+  }
+
+  function buildPromotionAutoSummary() {
+    var kind = getTextValue("id_promotion_kind");
+    var title = getTextValue("id_title");
+    var promoPrice = formatMoneyValue(getTextValue("id_promo_price"));
+    var giftValue = getTextValue("id_benefit_value");
+    var period = buildPromotionPeriodText();
+
+    if (!title) {
+      return "";
+    }
+
+    if (kind === "gift") {
+      var giftSummary = "Подарок к " + title;
+      if (giftValue) {
+        giftSummary += " — " + giftValue;
+      }
+      if (period) {
+        giftSummary += " " + period;
+      }
+      return giftSummary + ".";
+    }
+
+    if (kind === "preorder") {
+      var preorderSummary = "Предзаказ на " + title;
+      if (promoPrice) {
+        preorderSummary += " " + promoPrice;
+      }
+      if (period) {
+        preorderSummary += " " + period;
+      }
+      return preorderSummary + ".";
+    }
+
+    var discountSummary = "Скидка на " + title;
+    if (promoPrice) {
+      discountSummary += " " + promoPrice;
+    }
+    if (period) {
+      discountSummary += " " + period;
+    }
+    return discountSummary + ".";
+  }
+
+  function bindPromotionSummaryAutoFill() {
+    var summaryField = document.getElementById("id_summary");
+    if (!summaryField || summaryField.dataset.promotionSummaryBound === "true") {
+      return;
+    }
+
+    summaryField.dataset.promotionSummaryBound = "true";
+    summaryField.dataset.autoSummaryMode = getRichTextValue("id_summary") ? "manual" : "auto";
+    var widget = summaryField.closest("[data-rich-text-widget]");
+    var surface = widget ? widget.querySelector("[data-editor-surface]") : null;
+
+    function markManualMode() {
+      if (summaryField.dataset.autoWriting === "true") {
+        return;
+      }
+
+      summaryField.dataset.autoSummaryMode = getRichTextValue("id_summary") ? "manual" : "auto";
+    }
+
+    summaryField.addEventListener("input", markManualMode);
+    if (surface) {
+      surface.addEventListener("input", markManualMode);
+    }
+  }
+
+  function syncPromotionSummaryField() {
+    var summaryField = document.getElementById("id_summary");
+    if (!summaryField) {
+      return "";
+    }
+
+    bindPromotionSummaryAutoFill();
+
+    var generated = buildPromotionAutoSummary();
+    var currentValue = getRichTextValue("id_summary");
+    var lastAutoValue = summaryField.dataset.lastAutoSummary || "";
+    var autoMode = summaryField.dataset.autoSummaryMode !== "manual";
+
+    if (generated && (!currentValue || currentValue === lastAutoValue || autoMode)) {
+      var widget = summaryField.closest("[data-rich-text-widget]");
+      var surface = widget ? widget.querySelector("[data-editor-surface]") : null;
+
+      summaryField.dataset.autoWriting = "true";
+      summaryField.value = generated;
+      if (surface) {
+        surface.textContent = generated;
+      }
+      summaryField.dataset.lastAutoSummary = generated;
+      summaryField.dataset.autoSummaryMode = "auto";
+      summaryField.dataset.autoWriting = "false";
+      return generated;
+    }
+
+    return currentValue || generated;
   }
 
   function updateCardPreview() {
@@ -398,32 +521,33 @@
     var chips = [];
     var footer = [];
 
-    if (bodyClass.indexOf("model-news") !== -1) {
+    if (document.getElementById("id_promotion_kind")) {
       title = getTextValue("id_title");
-      description = getTextValue("id_summary") || getTextValue("id_content");
-      chips.push(getSelectedOptionLabel("id_category"));
-    } else if (bodyClass.indexOf("model-learningmaterial") !== -1) {
-      title = getTextValue("id_title");
-      description =
-        getTextValue("id_summary") ||
-        getTextValue("id_product_short_summary") ||
-        getTextValue("id_product_full_description") ||
-        getTextValue("id_content");
-      chips.push(getSelectedOptionLabel("id_material_type"));
-    } else if (bodyClass.indexOf("model-promotion") !== -1) {
-      title = getTextValue("id_title");
-      description = buildPromotionSummary();
+      description = syncPromotionSummaryField() || truncateText(getRichTextValue("id_details"), 180);
       chips.push(getTextValue("id_badge"));
       chips.push(getTextValue("id_brand"));
 
-      var promoPrice = getTextValue("id_promo_price");
-      var benefitValue = getTextValue("id_benefit_value");
+      var promoPrice = formatMoneyValue(getTextValue("id_promo_price"));
+      var giftValue = getTextValue("id_benefit_value");
+      var promotionKind = getTextValue("id_promotion_kind");
       if (promoPrice) {
         footer.push("Промоцена: " + promoPrice);
       }
-      if (benefitValue) {
-        footer.push(getBenefitLabel() + ": " + benefitValue);
+      if (promotionKind === "gift" && giftValue) {
+        footer.push("Подарок: " + giftValue);
       }
+    } else if (bodyClass.indexOf("model-news") !== -1 || document.getElementById("id_category")) {
+      title = getTextValue("id_title");
+      description = getRichTextValue("id_summary") || getRichTextValue("id_content");
+      chips.push(getSelectedOptionLabel("id_category"));
+    } else if (bodyClass.indexOf("model-learningmaterial") !== -1 || document.getElementById("id_material_type")) {
+      title = getTextValue("id_title");
+      description =
+        getRichTextValue("id_summary") ||
+        getRichTextValue("id_product_short_summary") ||
+        getRichTextValue("id_product_full_description") ||
+        getRichTextValue("id_content");
+      chips.push(getSelectedOptionLabel("id_material_type"));
     }
 
     preview.querySelector(".admin-card-preview__title").textContent =
@@ -493,10 +617,19 @@
 
     var audienceRow = findFieldRow("id_telegram_audience");
     var groupsRow = findFieldRow("id_telegram_target_groups");
+    var chatCollectionsRow = findFieldRow("id_telegram_target_chat_collections");
+    var includeGroupChatsRow = findFieldRow("id_telegram_include_group_chats");
     var enabled = sendNow.checked;
 
     setHidden(audienceRow, !enabled);
     setHidden(groupsRow, !enabled || audience.value !== "groups");
+    setHidden(includeGroupChatsRow, !enabled || audience.value === "group_chats");
+    setHidden(
+      chatCollectionsRow,
+      !enabled ||
+        (audience.value !== "group_chats" &&
+          !(document.getElementById("id_telegram_include_group_chats") || {}).checked)
+    );
   }
 
   function toggleBroadcastTargetGroups() {
@@ -506,15 +639,52 @@
     }
 
     var groupsRow = findFieldRow("id_target_groups");
+    var chatCollectionsRow = findFieldRow("id_target_chat_collections");
+    var includeGroupChatsRow = findFieldRow("id_include_group_chats");
+
     setHidden(groupsRow, targetMode.value !== "groups");
+    setHidden(includeGroupChatsRow, targetMode.value === "group_chats");
+    setHidden(
+      chatCollectionsRow,
+      targetMode.value !== "group_chats" &&
+        !(document.getElementById("id_include_group_chats") || {}).checked
+    );
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
+  function togglePromotionBenefitField() {
+    var promotionKind = document.getElementById("id_promotion_kind");
+    if (!promotionKind) {
+      return;
+    }
+
+    var promoPriceRow = findFieldRow("id_promo_price");
+    var benefitRow = findFieldRow("id_benefit_value");
+    var promoCodeRow = findFieldRow("id_promo_code");
+    var kind = promotionKind.value;
+
+    setHidden(benefitRow, kind !== "gift");
+    setHidden(promoCodeRow, kind !== "promo_price");
+
+    if (promoPriceRow) {
+      promoPriceRow.classList.remove("is-hidden");
+    }
+  }
+
+  function initializeAdminEnhancements() {
+    if (document.body && document.body.dataset.adminEnhancementsReady === "true") {
+      return;
+    }
+
+    if (document.body) {
+      document.body.dataset.adminEnhancementsReady = "true";
+    }
+
     ensureDraftStatusBox();
     restoreDraftSnapshot();
     setupImageUploadPreviews();
     toggleTelegramAudienceFields();
     toggleBroadcastTargetGroups();
+    togglePromotionBenefitField();
     updateCardPreview();
     decorateTypeBadges();
 
@@ -523,6 +693,7 @@
       function () {
         toggleTelegramAudienceFields();
         toggleBroadcastTargetGroups();
+        togglePromotionBenefitField();
         updateCardPreview();
         setupImageUploadPreviews();
         saveDraftSnapshot();
@@ -538,5 +709,11 @@
       },
       true
     );
-  });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initializeAdminEnhancements);
+  } else {
+    initializeAdminEnhancements();
+  }
 })();

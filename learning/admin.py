@@ -294,10 +294,12 @@ class LearningMaterialAdmin(
         "cover_thumb",
         "title",
         "material_type_badge",
-        "published_badge",
+        "is_published",
         "updated_at",
         "public_link",
     )
+    list_display_links = ("title",)
+    list_editable = ("is_published",)
     list_filter = ("material_type", "is_published", "updated_at")
     search_fields = (
         "title",
@@ -322,6 +324,7 @@ class LearningMaterialAdmin(
         "areas",
         "feature_tags",
         "telegram_target_groups",
+        "telegram_target_chat_collections",
     )
     actions = (
         "publish_selected",
@@ -382,9 +385,14 @@ class LearningMaterialAdmin(
                     "send_telegram_notification",
                     "telegram_audience",
                     "telegram_target_groups",
+                    "telegram_target_chat_collections",
+                    "telegram_include_group_chats",
                 ),
                 "classes": ("article-section", "section-material-mode"),
-                "description": "Если включить отправку, опубликованный материал уйдет всем пользователям Telegram-бота.",
+                "description": (
+                    "Если включить отправку, опубликованный материал уйдет "
+                    "личным подписчикам бота и, при необходимости, в Telegram-группы с активированным ботом."
+                ),
             },
         ),
         (

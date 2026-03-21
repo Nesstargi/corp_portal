@@ -55,11 +55,14 @@ class NewsAdminForm(forms.ModelForm):
         if cleaned_data.get("send_telegram_notification"):
             audience = cleaned_data.get("telegram_audience")
             groups = cleaned_data.get("telegram_target_groups")
+            collections = cleaned_data.get("telegram_target_chat_collections")
             if audience == "groups" and (not groups or not groups.exists()):
                 self.add_error(
                     "telegram_target_groups",
                     "Выбери хотя бы одну группу подписчиков Telegram.",
                 )
+            if audience == "group_chats" and collections and hasattr(collections, "exists") and not collections.exists():
+                cleaned_data["telegram_target_chat_collections"] = collections
 
         return cleaned_data
 
@@ -136,11 +139,13 @@ class NewsAdmin(
         "cover_thumb",
         "title",
         "category_badge",
-        "published_badge",
+        "is_published",
         "created_at",
         "updated_at",
         "public_link",
     )
+    list_display_links = ("title",)
+    list_editable = ("is_published",)
     list_filter = ("category", "is_published", "created_at")
     search_fields = ("title", "summary", "content")
     readonly_fields = (
@@ -157,6 +162,7 @@ class NewsAdmin(
         "product_categories",
         "feature_tags",
         "telegram_target_groups",
+        "telegram_target_chat_collections",
     )
     inlines = [NewsBlockInline]
     actions = (
@@ -197,8 +203,14 @@ class NewsAdmin(
                     "send_telegram_notification",
                     "telegram_audience",
                     "telegram_target_groups",
+                    "telegram_target_chat_collections",
+                    "telegram_include_group_chats",
                 ),
-                "description": "Работает только для опубликованных новостей и пользователей, которые уже написали боту.",
+                "description": (
+                    "Работает только для опубликованных новостей. "
+                    "Личные уведомления уходят тем, кто уже запускал бота, "
+                    "а групповые — в те Telegram-группы, где бот был активирован командой."
+                ),
             },
         ),
         (
