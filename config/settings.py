@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -45,12 +46,22 @@ def env_list(name, default=""):
 RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME", "")
 ON_RENDER = bool(os.getenv("RENDER") or RENDER_EXTERNAL_HOSTNAME)
 
-SECRET_KEY = os.getenv(
-    "SECRET_KEY",
-    "django-insecure-_v_^5qr(@hrl8r)w%5h7(-8%ez#+lk8cd0n)ws@m$h#v30iq3t",
-)
+DEFAULT_SECRET_KEY = "django-insecure-_v_^5qr(@hrl8r)w%5h7(-8%ez#+lk8cd0n)ws@m$h#v30iq3t"
+INSECURE_SECRET_KEYS = {
+    "",
+    "change-me",
+    "replace-with-a-long-random-secret",
+    DEFAULT_SECRET_KEY,
+}
+
+SECRET_KEY = os.getenv("SECRET_KEY", DEFAULT_SECRET_KEY).strip()
 
 DEBUG = env_bool("DEBUG", default=not ON_RENDER)
+
+if not DEBUG and SECRET_KEY in INSECURE_SECRET_KEYS:
+    raise ImproperlyConfigured(
+        "Set a unique SECRET_KEY before running with DEBUG=False."
+    )
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "127.0.0.1,localhost")
 if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
@@ -82,7 +93,12 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
+]
+
+if not DEBUG:
+    MIDDLEWARE.append("whitenoise.middleware.WhiteNoiseMiddleware")
+
+MIDDLEWARE += [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -173,6 +189,14 @@ SERVE_MEDIA = env_bool("SERVE_MEDIA", default=DEBUG or ON_RENDER)
 SITE_URL = os.getenv("SITE_URL", "http://127.0.0.1:8000").rstrip("/")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 TELEGRAM_WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "").strip()
+PRESENTATION_OCR_ENABLED = env_bool("PRESENTATION_OCR_ENABLED", default=True)
+PRESENTATION_OCR_LANGUAGES = os.getenv("PRESENTATION_OCR_LANGUAGES", "rus+eng").strip()
+PRESENTATION_OCR_TIMEOUT = int(os.getenv("PRESENTATION_OCR_TIMEOUT", "20"))
+PRESENTATION_OCR_TESSERACT_CMD = os.getenv("PRESENTATION_OCR_TESSERACT_CMD", "").strip()
+PRESENTATION_OCR_TESSDATA_DIR = os.getenv(
+    "PRESENTATION_OCR_TESSDATA_DIR",
+    os.getenv("TESSDATA_PREFIX", ""),
+).strip()
 
 if not DEBUG:
     STORAGES["staticfiles"] = {

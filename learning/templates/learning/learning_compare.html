@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}
+  Сравнение товаров | CorpPortal
+{% endblock %}
+
+{% block content %}
+  <section class="page-header">
+    <div class="container">
+      <span class="eyebrow">Сравнение товаров</span>
+      <h1>Сравнить две модели</h1>
+      <p class="lead">Введи названия двух товаров, и портал покажет не только различия в характеристиках, но и выжимку по фишкам и акцентам для продажи.</p>
+
+      <form class="filters compare-form" method="get">
+        <div class="filter-field">
+          <label for="left">Первая модель</label>
+          <input id="left" name="left" type="text" value="{{ left_query }}" list="compare-product-options" placeholder="Например: Dreame R20" />
+        </div>
+        <div class="filter-field">
+          <label for="right">Вторая модель</label>
+          <input id="right" name="right" type="text" value="{{ right_query }}" list="compare-product-options" placeholder="Например: Xiaomi Vacuum G20" />
+        </div>
+        <div class="filters__actions">
+          <button class="button" type="submit">Сравнить</button>
+          <a class="button button--ghost" href="{% url 'learning_compare' %}">Сбросить</a>
+        </div>
+
+        <datalist id="compare-product-options">
+          {% for title in product_titles %}
+            <option value="{{ title }}"></option>
+          {% endfor %}
+        </datalist>
+      </form>
+
+      {% if compare_errors %}
+        <div class="compare-feedback compare-feedback--error">
+          {% for error in compare_errors %}
+            <p>{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% elif compare_hint %}
+        <div class="compare-feedback">
+          <p>{{ compare_hint }}</p>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if comparison %}
+    <section class="section">
+      <div class="container grid grid--two compare-product-grid">
+        <article class="card compare-product-card">
+          <div class="meta">
+            <span class="chip chip--feature">Модель 1</span>
+            {% for brand in comparison.left.brands %}
+              <span>{{ brand.name }}</span>
+            {% endfor %}
+          </div>
+          <h2>{{ comparison.left.material.title }}</h2>
+          {% if comparison.left.summary %}
+            <p>{{ comparison.left.summary }}</p>
+          {% endif %}
+          <div class="chips">
+            {% for category in comparison.left.categories %}
+              <span class="chip">{{ category.name }}</span>
+            {% endfor %}
+            {% for tag in comparison.left.feature_tags %}
+              <span class="chip chip--feature">{{ tag.name }}</span>
+            {% endfor %}
+          </div>
+          <div class="section-link-row">
+            <a class="button button--ghost" href="{% url 'learning_detail' comparison.left.material.pk %}">Открыть карточку товара</a>
+          </div>
+        </article>
+
+        <article class="card compare-product-card">
+          <div class="meta">
+            <span class="chip chip--feature">Модель 2</span>
+            {% for brand in comparison.right.brands %}
+              <span>{{ brand.name }}</span>
+            {% endfor %}
+          </div>
+          <h2>{{ comparison.right.material.title }}</h2>
+          {% if comparison.right.summary %}
+            <p>{{ comparison.right.summary }}</p>
+          {% endif %}
+          <div class="chips">
+            {% for category in comparison.right.categories %}
+              <span class="chip">{{ category.name }}</span>
+            {% endfor %}
+            {% for tag in comparison.right.feature_tags %}
+              <span class="chip chip--feature">{{ tag.name }}</span>
+            {% endfor %}
+          </div>
+          <div class="section-link-row">
+            <a class="button button--ghost" href="{% url 'learning_detail' comparison.right.material.pk %}">Открыть карточку товара</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section compare-summary-section">
+      <div class="container grid grid--two">
+        <article class="card">
+          <h2>{{ comparison.left.material.title }}</h2>
+          <p class="compare-section-subtitle">Короткая выжимка отличий этой модели</p>
+          <div class="compare-highlight-list">
+            {% for item in comparison.left_highlights %}
+              <article class="compare-highlight">
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.detail }}</p>
+              </article>
+            {% empty %}
+              <div class="empty-state">Для этой модели пока не хватает отличительных пунктов в карточке.</div>
+            {% endfor %}
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>{{ comparison.right.material.title }}</h2>
+          <p class="compare-section-subtitle">Короткая выжимка отличий этой модели</p>
+          <div class="compare-highlight-list">
+            {% for item in comparison.right_highlights %}
+              <article class="compare-highlight">
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.detail }}</p>
+              </article>
+            {% empty %}
+              <div class="empty-state">Для этой модели пока не хватает отличительных пунктов в карточке.</div>
+            {% endfor %}
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-copy">
+          <span class="eyebrow">Характеристики</span>
+          <h2>Отличия по характеристикам</h2>
+          <p class="lead">Совпадающих характеристик: {{ comparison.same_spec_count }}. В таблицу попали только различающиеся или уникальные пункты.</p>
+        </div>
+
+        {% if comparison.spec_rows %}
+          <div class="spec-table-wrap">
+            <table class="spec-table compare-spec-table">
+              <thead>
+                <tr>
+                  <th>Параметр</th>
+                  <th>{{ comparison.left.material.title }}</th>
+                  <th>{{ comparison.right.material.title }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in comparison.spec_rows %}
+                  <tr>
+                    <th>{{ row.name }}</th>
+                    <td>
+                      {% if row.left %}
+                        {{ row.left }}
+                      {% else %}
+                        <span class="compare-empty">Нет в карточке</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if row.right %}
+                        {{ row.right }}
+                      {% else %}
+                        <span class="compare-empty">Нет в карточке</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="empty-state">По характеристикам отличий не найдено или карточки пока заполнены одинаково.</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-copy">
+          <span class="eyebrow">Фишки</span>
+          <h2>Чем отличаются фишки и акценты</h2>
+          <p class="lead">Здесь собраны различия не только по самим фишкам, но и по тому, как они описаны для продажи в карточках товаров.</p>
+        </div>
+
+        {% if comparison.feature_rows %}
+          <div class="compare-feature-stack">
+            {% for row in comparison.feature_rows %}
+              <article class="card compare-feature-card">
+                <h3>{{ row.name }}</h3>
+                <div class="compare-feature-card__grid">
+                  <div>
+                    <p class="compare-side-label">{{ comparison.left.material.title }}</p>
+                    {% if row.left %}
+                      <p>{{ row.left }}</p>
+                    {% else %}
+                      <p class="compare-empty">Фишка не выделена в карточке.</p>
+                    {% endif %}
+                  </div>
+                  <div>
+                    <p class="compare-side-label">{{ comparison.right.material.title }}</p>
+                    {% if row.right %}
+                      <p>{{ row.right }}</p>
+                    {% else %}
+                      <p class="compare-empty">Фишка не выделена в карточке.</p>
+                    {% endif %}
+                  </div>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">По фишкам отличий не найдено или карточки пока описаны одинаково.</div>
+        {% endif %}
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

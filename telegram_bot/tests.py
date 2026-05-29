@@ -13,7 +13,13 @@ from .models import (
     TelegramChatCollection,
     TelegramSubscriber,
 )
-from .services import send_broadcast_notification, send_news_notification
+from .services import (
+    TelegramMessagePayload,
+    _make_absolute_url,
+    _send_prepared_message_to_subscriber,
+    send_broadcast_notification,
+    send_news_notification,
+)
 
 
 @override_settings(
@@ -286,3 +292,35 @@ class TelegramAudienceTests(TestCase):
         self.assertEqual(report.failed, 0)
         sent_ids = {call.args[0].pk for call in mock_send.call_args_list}
         self.assertEqual(sent_ids, {direct_user.pk, target_group.pk})
+
+
+@override_settings(TELEGRAM_BOT_TOKEN="test-token", SITE_URL="https://example.com/portal")
+class TelegramPayloadTests(TestCase):
+    def test_make_absolute_url_keeps_external_urls(self):
+        self.assertEqual(
+            _make_absolute_url("https://cdn.example.com/image.jpg"),
+            "https://cdn.example.com/image.jpg",
+        )
+
+    def test_make_absolute_url_joins_relative_paths(self):
+        self.assertEqual(
+            _make_absolute_url("/news/12/"),
+            "https://example.com/portal/news/12/",
+        )
+
+    @patch("telegram_bot.services._perform_api_call")
+    def test_photo_caption_is_trimmed_without_broken_html(self, mock_api_call):
+        subscriber = TelegramSubscriber.objects.create(chat_id=123)
+        long_text = "<b>Очень длинный заголовок</b>\n" + ("Описание " * 220)
+        payload = TelegramMessagePayload(
+            text=long_text,
+            image_url="https://example.com/media/cover.jpg",
+        )
+
+        _send_prepared_message_to_subscriber(subscriber, payload)
+
+        method, request_payload = mock_api_call.call_args[0]
+        self.assertEqual(method, "sendPhoto")
+        self.assertLessEqual(len(request_payload["caption"]), 1024)
+        self.assertNotIn("<b>", request_payload["caption"])
+        self.assertNotIn("</b>", request_payload["caption"])

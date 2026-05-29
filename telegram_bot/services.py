@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urljoin, urlparse
 from urllib.request import Request, urlopen
 
 from django.conf import settings
@@ -68,7 +68,10 @@ def _perform_api_call(method, payload=None):
 def _make_absolute_url(path):
     if not path:
         return ""
-    return f"{settings.SITE_URL.rstrip('/')}{path}"
+    parsed = urlparse(path)
+    if parsed.scheme and parsed.netloc:
+        return path
+    return urljoin(f"{settings.SITE_URL.rstrip('/')}/", str(path).lstrip("/"))
 
 
 def _absolute_media_url(file_field):
@@ -83,6 +86,13 @@ def _truncate_plain_text(text, limit=900):
     if len(clean_text) <= limit:
         return clean_text
     return f"{clean_text[: limit - 1].rstrip()}…"
+
+
+def _limit_html_text(text, limit):
+    text = text or ""
+    if len(text) <= limit:
+        return text
+    return escape(_truncate_plain_text(text, limit=limit))
 
 
 def _build_reply_markup(button_text="", button_url=""):
@@ -213,7 +223,7 @@ def _send_prepared_message_to_subscriber(subscriber, payload):
             request_payload = {
                 "chat_id": subscriber.chat_id,
                 "photo": payload.image_url,
-                "caption": payload.text[:1024],
+                "caption": _limit_html_text(payload.text, 1024),
                 "parse_mode": "HTML",
             }
             if reply_markup:

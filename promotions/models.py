@@ -9,6 +9,8 @@ from django.utils import timezone
 from django.utils.html import strip_tags
 from django.utils.text import slugify
 
+from .slug_utils import build_ascii_slug
+
 
 class PromotionSource(models.Model):
     IMPORT_MODE_SINGLE_SHEET = "single_sheet"
@@ -247,7 +249,7 @@ class Promotion(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            base_slug = slugify(self.title) or "promotion"
+            base_slug = build_ascii_slug(self.title, fallback="promotion")
             slug = base_slug
             counter = 2
 

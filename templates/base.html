@@ -11,30 +11,29 @@
     </title>
     <link rel="stylesheet" href="{% static 'css/style.css' %}" />
   </head>
-  <body>
+  <body class="site-shell">
+    <a class="skip-link" href="#main-content">Перейти к содержимому</a>
     <header class="site-header">
       <div class="container site-header__inner">
         <div>
           <a class="logo" href="{% url 'home' %}">CorpPortal</a>
-          <p class="logo-subtitle">Новости, обучение и внутренняя база знаний</p>
+          <p class="logo-subtitle">Новости, акции и внутренняя база знаний</p>
         </div>
-        <nav class="nav">
-          <a href="{% url 'home' %}">Главная</a>
-          <a href="{% url 'news_list' %}">Новости</a>
-          <a href="{% url 'promotion_list' %}">Акции</a>
-          <a href="{% url 'learning_list' %}">Обучение</a>
-          <a href="{% url 'search' %}">Поиск</a>
+        <nav class="nav" aria-label="Основная навигация">
+          <a href="{% url 'home' %}"{% if request.resolver_match.url_name == 'home' %} class="is-active" aria-current="page"{% endif %}>Главная</a>
+          <a href="{% url 'news_list' %}"{% if request.resolver_match.url_name == 'news_list' or request.resolver_match.url_name == 'news_detail' %} class="is-active" aria-current="page"{% endif %}>Новости</a>
+          <a href="{% url 'promotion_list' %}"{% if request.resolver_match.url_name == 'promotion_list' or request.resolver_match.url_name == 'promotion_detail' %} class="is-active" aria-current="page"{% endif %}>Акции</a>
+          <a href="{% url 'learning_list' %}"{% if request.resolver_match.url_name == 'learning_list' or request.resolver_match.url_name == 'learning_detail' or request.resolver_match.url_name == 'learning_compare' or request.resolver_match.url_name == 'learning_quiz_detail' %} class="is-active" aria-current="page"{% endif %}>База знаний</a>
         </nav>
       </div>
     </header>
 
-    <main>
+    <main class="site-main" id="main-content">
       {% block content %}{% endblock %}
     </main>
 
     <footer class="footer">
       <div class="container footer__inner">
-        <p>CorpPortal на Django</p>
         <p>Внутренний корпоративный портал</p>
       </div>
     </footer>

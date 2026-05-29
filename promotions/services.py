@@ -8,11 +8,11 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from django.utils import timezone
-from django.utils.text import slugify
 from openpyxl import load_workbook
 from openpyxl.utils.datetime import from_excel
 
 from .models import Promotion, PromotionSource
+from .slug_utils import build_ascii_slug
 
 
 HEADER_SYNONYMS = {
@@ -451,7 +451,7 @@ def fetch_source_rows(source):
 def build_row_key(source, row_number, raw_row, normalized_row, title, brand, promo_code, start_date, end_date):
     explicit_key = extract_value(normalized_row, "row_key")
     if explicit_key:
-        return slugify(explicit_key) or explicit_key
+        return build_ascii_slug(explicit_key) or explicit_key
 
     base_parts = [
         title,
@@ -461,12 +461,12 @@ def build_row_key(source, row_number, raw_row, normalized_row, title, brand, pro
         str(end_date or ""),
     ]
     base = "-".join(part for part in base_parts if part).strip()
-    slug = slugify(base)
+    slug = build_ascii_slug(base)
     if slug:
         return slug
 
     fallback = next((value for value in raw_row.values() if value.strip()), "")
-    return slugify(fallback) or f"{source.pk or 'source'}-row-{row_number}"
+    return build_ascii_slug(fallback) or f"{source.pk or 'source'}-row-{row_number}"
 
 
 def map_row_to_promotion(source, row_number, raw_row):
@@ -743,7 +743,7 @@ def map_worksheet_to_preorder_promotion(source, worksheet, sort_order):
 
     return {
         "source": source,
-        "source_row_key": slugify(f"{worksheet.title}-{sort_order}") or f"worksheet-{sort_order}",
+        "source_row_key": build_ascii_slug(f"{worksheet.title}-{sort_order}") or f"worksheet-{sort_order}",
         "title": title,
         "promotion_kind": Promotion.KIND_PREORDER,
         "badge": "Предзаказ",

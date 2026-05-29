@@ -7,47 +7,61 @@
 {% block content %}
   <section class="hero">
     <div class="container">
-      <div class="hero-card">
-        <span class="eyebrow">Корпоративный портал</span>
-        <h1>Единый портал для команды продаж</h1>
-        <p class="lead">Новости компании, обучающие материалы, инструкции по товарам, акции и быстрое внутреннее ориентирование по брендам, категориям и процессам.</p>
+      <div class="hero-card hero-card--portal">
+        <div class="hero-card__grid">
+          <div class="hero-card__content">
+            <span class="eyebrow">Корпоративный портал</span>
+            <h1>Единый портал для команды продаж</h1>
+            <p class="lead">Новости компании, база знаний по товарам и процессам, актуальные акции и быстрые подсказки по брендам, категориям и фишкам.</p>
+            <div class="section-link-row">
+              <a class="button" href="{% url 'learning_list' %}">Открыть базу знаний</a>
+              <a class="button button--ghost" href="{% url 'promotion_list' %}">Смотреть акции</a>
+            </div>
+          </div>
+
+          <aside class="hero-card__panel" aria-label="Разделы портала">
+            <div class="hero-stat-list">
+              <a class="hero-stat" href="{% url 'news_list' %}">
+                <span class="hero-stat__label">Новости</span>
+                <strong>Обновления</strong>
+                <p>Быстрое понимание новых моделей, процессов и внутренних изменений.</p>
+              </a>
+              <a class="hero-stat" href="{% url 'promotion_list' %}">
+                <span class="hero-stat__label">Акции</span>
+                <strong>Предложения</strong>
+                <p>Актуальные промо-механики, промокоды и выгода для команды продаж.</p>
+              </a>
+              <a class="hero-stat" href="{% url 'learning_list' %}">
+                <span class="hero-stat__label">База знаний</span>
+                <strong>База знаний</strong>
+                <p>Материалы по товарам, брендам, фишкам, сценариям консультации и внутренним процессам.</p>
+              </a>
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   </section>
 
   <section class="section">
-    <div class="container grid grid--three">
-      <article class="card">
-        <h3>Новости</h3>
-        <p>Новые модели, акции, корпоративные события и важные изменения в процессах.</p>
-        <a class="button" href="{% url 'news_list' %}">Открыть раздел</a>
-      </article>
-      <article class="card">
-        <h3>Акции</h3>
-        <p>Импорт из Google Sheets, единая витрина предложений и быстрый доступ к условиям для команды продаж.</p>
-        <a class="button" href="{% url 'promotion_list' %}">Открыть акции</a>
-      </article>
-      <article class="card">
-        <h3>Обучение</h3>
-        <p>Материалы по 1С, брендам, категориям товаров, кредитным продуктам и внутренним процессам.</p>
-        <a class="button" href="{% url 'learning_list' %}">Перейти к обучению</a>
-      </article>
-    </div>
-  </section>
-
-  <section class="section">
     <div class="container">
-      <h2>Последние новости</h2>
+      <div class="section-copy section-copy--split">
+        <div>
+          <span class="eyebrow">Новости</span>
+          <h2>Последние новости</h2>
+        </div>
+        <p class="lead">Короткая лента ключевых обновлений, которые стоит увидеть в первую очередь.</p>
+      </div>
       <div class="grid grid--three">
         {% for item in latest_news %}
           <a class="card-link" href="{% url 'news_detail' item.pk %}">
-            <article class="card">
+            <article class="card simple-card">
               <div class="meta">
                 <span>{{ item.get_category_display }}</span>
                 <span>{{ item.created_at|date:"d.m.Y" }}</span>
               </div>
               <h3>{{ item.title }}</h3>
-              <p>{{ item.summary|default:item.content|truncatechars:160 }}</p>
+              <p class="simple-card__summary">{{ item.summary|default:item.content|striptags|truncatechars:160 }}</p>
               {% if item.feature_tags.all or item.brands.all or item.product_categories.all %}
                 <div class="chips">
                   {% for tag in item.feature_tags.all %}
@@ -72,7 +86,13 @@
 
   <section class="section">
     <div class="container">
-      <h2>Горячие акции</h2>
+      <div class="section-copy section-copy--split">
+        <div>
+          <span class="eyebrow">Акции</span>
+          <h2>Горячие акции</h2>
+        </div>
+        <p class="lead">Подборка самых заметных предложений, на которые удобно опираться в консультации.</p>
+      </div>
       <div class="promo-list-stack">
         {% for item in latest_promotions %}
           <a class="card-link" href="{% url 'promotion_detail' item.slug %}">
@@ -136,7 +156,13 @@
 
   <section class="section">
     <div class="container">
-      <h2>Свежие материалы</h2>
+      <div class="section-copy section-copy--split">
+        <div>
+          <span class="eyebrow">База знаний</span>
+          <h2>Свежие материалы базы знаний</h2>
+        </div>
+        <p class="lead">Новые карточки и инструкции, которые помогают быстрее ориентироваться в товарах, фишках и процессах.</p>
+      </div>
       <div class="grid grid--three">
         {% for item in latest_learning %}
           <a class="card-link" href="{% url 'learning_detail' item.pk %}">
@@ -159,7 +185,7 @@
                   <p class="learning-card__excerpt">{{ preview_text }}</p>
                 {% endwith %}
 
-                {% if item.feature_tags.all or item.brands.all or item.categories.all or item.areas.all %}
+                {% if item.feature_tags.all or item.brands.all or item.categories.all %}
                   <div class="chips learning-card__chips">
                     {% for tag in item.feature_tags.all %}
                       <span class="chip chip--feature">{{ tag.name }}</span>
@@ -170,20 +196,14 @@
                     {% for category in item.categories.all %}
                       <span class="chip">{{ category.name }}</span>
                     {% endfor %}
-                    {% for area in item.areas.all %}
-                      <span class="chip">{{ area.name }}</span>
-                    {% endfor %}
                   </div>
                 {% endif %}
               </div>
             </article>
           </a>
         {% empty %}
-          <div class="empty-state">Обучающих материалов пока нет.</div>
+          <div class="empty-state">Материалов базы знаний пока нет.</div>
         {% endfor %}
-      </div>
-      <div class="section-link-row">
-        <a class="button button--ghost" href="{% url 'search' %}">Открыть глобальный поиск</a>
       </div>
     </div>
   </section>

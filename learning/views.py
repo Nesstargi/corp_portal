@@ -1,19 +1,25 @@
+from django.db.models import Prefetch
+from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 
-from catalog.models import Brand, KnowledgeArea, ProductCategory
-
+from catalog.models import Brand, FeatureTag, ProductCategory
+from portal.recommendations import build_related_content_for_learning
 from .models import LearningMaterial
 
 
 def learning_list(request):
     selected_brand = request.GET.get("brand", "")
     selected_category = request.GET.get("category", "")
-    selected_area = request.GET.get("area", "")
-    selected_type = request.GET.get("type", "")
+    selected_feature = request.GET.get("feature", "")
 
     materials = (
         LearningMaterial.objects.filter(is_published=True)
-        .prefetch_related("brands", "categories", "areas", "feature_tags", "blocks")
+        .prefetch_related(
+            "brands",
+            "categories",
+            "feature_tags",
+            "blocks__gallery_images",
+        )
         .order_by("title")
     )
 
@@ -21,10 +27,8 @@ def learning_list(request):
         materials = materials.filter(brands__slug=selected_brand)
     if selected_category:
         materials = materials.filter(categories__slug=selected_category)
-    if selected_area:
-        materials = materials.filter(areas__slug=selected_area)
-    if selected_type:
-        materials = materials.filter(material_type=selected_type)
+    if selected_feature:
+        materials = materials.filter(feature_tags__slug=selected_feature)
 
     return render(
         request,
@@ -33,14 +37,16 @@ def learning_list(request):
             "materials": materials.distinct(),
             "brands": Brand.objects.all(),
             "product_categories": ProductCategory.objects.all(),
-            "knowledge_areas": KnowledgeArea.objects.all(),
-            "material_types": LearningMaterial.MATERIAL_TYPE_CHOICES,
+            "feature_tags": FeatureTag.objects.all(),
             "selected_brand": selected_brand,
             "selected_category": selected_category,
-            "selected_area": selected_area,
-            "selected_type": selected_type,
+            "selected_feature": selected_feature,
         },
     )
+
+
+def learning_compare(request):
+    raise Http404("Сравнение товаров временно отключено.")
 
 
 def learning_detail(request, pk):
@@ -50,7 +56,7 @@ def learning_detail(request, pk):
             "categories",
             "areas",
             "feature_tags",
-            "blocks",
+            "blocks__gallery_images",
             "product_description_images",
             "product_review_images",
             "product_features",
@@ -60,4 +66,11 @@ def learning_detail(request, pk):
         pk=pk,
         is_published=True,
     )
-    return render(request, "learning/learning_detail.html", {"material": material})
+    return render(
+        request,
+        "learning/learning_detail.html",
+        {
+            "material": material,
+            "related_content": build_related_content_for_learning(material),
+        },
+    )

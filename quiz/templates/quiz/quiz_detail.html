@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {{ quiz.title }} | CorpPortal
+{% endblock %}
+
+{% block content %}
+  <section class="page-header">
+    <div class="container page-layout">
+      <div>
+        <div class="meta">
+          <span>Тест для самопроверки</span>
+          {% if public_material %}
+            <span>По материалу: {{ public_material.title }}</span>
+          {% endif %}
+        </div>
+        <h1>{{ quiz.title }}</h1>
+        {% if quiz.summary %}
+          <p class="lead">{{ quiz.summary }}</p>
+        {% endif %}
+
+        <div class="section-link-row">
+          {% if public_material %}
+            <a class="button button--ghost" href="{% url 'learning_detail' public_material.pk %}">Вернуться к материалу</a>
+          {% endif %}
+          <form method="post" action="{% url 'learning_quiz_reset' quiz.slug %}">
+            {% csrf_token %}
+            <button class="button button--ghost" type="submit">Начать заново</button>
+          </form>
+        </div>
+      </div>
+
+      <aside class="card quiz-progress-card">
+        <div class="quiz-progress-card__eyebrow">Прогресс</div>
+        <div class="quiz-progress-card__score">{{ correct_answers }} из {{ question_total }}</div>
+        <p class="quiz-progress-card__meta">Правильных ответов на текущий момент</p>
+        <div class="quiz-progress-card__status">{{ answered_total }} из {{ question_total }} вопросов уже открыто</div>
+
+        {% if step_items %}
+          <div class="quiz-step-list">
+            {% for item in step_items %}
+              <a
+                class="quiz-step{% if item.is_current %} is-current{% elif item.is_correct %} is-correct{% elif item.is_answered %} is-answered{% endif %}"
+                href="?step={{ item.number }}"
+              >
+                {{ item.number }}
+              </a>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </aside>
+
+      <section class="card stream-content">
+        {% if not questions %}
+          <div class="empty-state">В тесте пока нет вопросов. Добавьте их в админке, и он сразу станет доступен сотрудникам.</div>
+        {% elif show_summary %}
+          <div class="quiz-summary-header">
+            <span class="eyebrow">Итог самопроверки</span>
+            <h2>Тест завершён</h2>
+            <p class="lead">Правильных ответов: {{ correct_answers }} из {{ question_total }}.</p>
+          </div>
+
+          {% if quiz.completion_message %}
+            <div class="quiz-completion-note rich-copy">{{ quiz.completion_message|linebreaksbr }}</div>
+          {% endif %}
+
+          <div class="quiz-summary-list">
+            {% for item in summary_items %}
+              <article class="quiz-summary-item{% if item.is_correct %} quiz-summary-item--correct{% elif item.is_answered %} quiz-summary-item--incorrect{% endif %}">
+                <div class="quiz-summary-item__header">
+                  <span class="quiz-summary-item__number">Вопрос {{ item.number }}</span>
+                  {% if item.is_correct %}
+                    <span class="quiz-summary-item__status quiz-summary-item__status--correct">Верно</span>
+                  {% elif item.is_answered %}
+                    <span class="quiz-summary-item__status quiz-summary-item__status--incorrect">Нужно повторить</span>
+                  {% else %}
+                    <span class="quiz-summary-item__status">Не отвечен</span>
+                  {% endif %}
+                </div>
+                <h3>{{ item.prompt }}</h3>
+                {% if item.selected_option_text %}
+                  <p><strong>Твой ответ:</strong> {{ item.selected_option_text }}</p>
+                {% else %}
+                  <p><strong>Твой ответ:</strong> Вопрос пропущен.</p>
+                {% endif %}
+                <p><strong>Правильный вариант:</strong> {{ item.correct_option_text }}</p>
+                <div class="rich-copy">{{ item.explanation|linebreaksbr }}</div>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          {% if quiz.intro and current_step == 1 %}
+            <div class="quiz-intro rich-copy">{{ quiz.intro|linebreaksbr }}</div>
+          {% endif %}
+
+          <div class="quiz-question-meta">
+            <span class="eyebrow">Вопрос {{ current_step }} из {{ question_total }}</span>
+          </div>
+
+          <article class="quiz-question-card">
+            <h2>{{ current_question.prompt }}</h2>
+
+            {% if form_error %}
+              <div class="quiz-feedback quiz-feedback--incorrect">
+                <strong>Нужен выбор ответа.</strong>
+                <p>{{ form_error }}</p>
+              </div>
+            {% endif %}
+
+            {% if feedback %}
+              <div class="quiz-feedback quiz-feedback--{{ feedback.tone }}">
+                <strong>{{ feedback.title }}</strong>
+                <p><strong>Правильный вариант:</strong> {{ feedback.correct_option_text }}</p>
+                <div class="rich-copy">{{ feedback.explanation|linebreaksbr }}</div>
+              </div>
+            {% endif %}
+
+            <form method="post" class="quiz-answer-form">
+              {% csrf_token %}
+              <input type="hidden" name="question_id" value="{{ current_question.pk }}">
+
+              <div class="quiz-option-list">
+                {% for option in current_question.answer_options %}
+                  <label
+                    class="quiz-option{% if selected_index == forloop.counter0 %} is-selected{% endif %}{% if feedback and option.text == feedback.correct_option_text %} is-correct{% endif %}{% if feedback and selected_index == forloop.counter0 and not feedback.is_correct %} is-incorrect{% endif %}"
+                  >
+                    <input type="radio" name="selected_option" value="{{ forloop.counter0 }}" {% if selected_index == forloop.counter0 %}checked{% endif %}>
+                    <span>{{ option.text }}</span>
+                  </label>
+                {% endfor %}
+              </div>
+
+              <div class="section-link-row">
+                <button class="button" type="submit">Проверить ответ</button>
+                {% if has_previous %}
+                  <a class="button button--ghost" href="?step={{ previous_step }}">Назад</a>
+                {% endif %}
+                {% if feedback and next_step %}
+                  <a class="button button--ghost" href="?step={{ next_step }}">Следующий вопрос</a>
+                {% elif feedback %}
+                  <a class="button button--ghost" href="?step=summary">Посмотреть итог</a>
+                {% endif %}
+              </div>
+            </form>
+          </article>
+        {% endif %}
+      </section>
+    </div>
+  </section>
+{% endblock %}

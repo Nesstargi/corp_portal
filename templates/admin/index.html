@@ -1,0 +1,69 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/admin-dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+  <div class="admin-dashboard">
+    <section class="admin-dashboard__intro">
+      <div>
+        <p class="admin-dashboard__eyebrow">CorpPortal</p>
+        <h1>Управление порталом</h1>
+        <p>
+          На этой странице оставлены только рабочие разделы: справочники товаров,
+          база знаний, новости, акции и Telegram бот.
+        </p>
+      </div>
+    </section>
+
+    {% if app_list %}
+      <div class="admin-dashboard__grid">
+        {% for app in app_list %}
+          <section class="admin-dashboard-section">
+            <div class="admin-dashboard-section__head">
+              <div>
+                <h2>{{ app.name }}</h2>
+                {% if app.description %}
+                  <p>{{ app.description }}</p>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="admin-dashboard-section__items">
+              {% for model in app.models %}
+                <article class="admin-dashboard-card">
+                  <div class="admin-dashboard-card__content">
+                    {% if model.admin_url %}
+                      <a class="admin-dashboard-card__title" href="{{ model.admin_url }}">{{ model.name }}</a>
+                    {% else %}
+                      <span class="admin-dashboard-card__title">{{ model.name }}</span>
+                    {% endif %}
+                    {% if model.description %}
+                      <p>{{ model.description }}</p>
+                    {% endif %}
+                  </div>
+
+                  <div class="admin-dashboard-card__actions">
+                    {% if model.add_url %}
+                      <a class="admin-dashboard-card__button" href="{{ model.add_url }}">Добавить</a>
+                    {% endif %}
+                    {% if model.admin_url %}
+                      <a class="admin-dashboard-card__button admin-dashboard-card__button--ghost" href="{{ model.admin_url }}">Открыть</a>
+                    {% endif %}
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+          </section>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p>{% translate "You don't have permission to view or edit anything." %}</p>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block sidebar %}{% endblock %}

@@ -1,0 +1,32 @@
+{% if related_content %}
+  <section class="section">
+    <div class="container">
+      <div class="section-copy">
+        <span class="eyebrow">Что ещё посмотреть</span>
+        <h2>Связанные материалы</h2>
+        <p class="lead">Собрали рядом похожие новости, материалы базы знаний и акции по тем же брендам, категориям и фишкам.</p>
+      </div>
+
+      <div class="grid grid--three">
+        {% for item in related_content %}
+          <a class="card-link" href="{{ item.url }}">
+            <article class="card related-card simple-card">
+              <div class="meta related-card__meta">
+                <span class="chip chip--feature">{{ item.label }}</span>
+                {% if item.meta %}
+                  <span>{{ item.meta }}</span>
+                {% endif %}
+              </div>
+              <h3>{{ item.title }}</h3>
+              {% if item.summary %}
+                <p class="related-card__summary">{{ item.summary }}</p>
+              {% else %}
+                <p class="related-card__summary">Открыть материал и посмотреть детали.</p>
+              {% endif %}
+            </article>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+{% endif %}

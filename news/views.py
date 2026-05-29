@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404, render
 
 from learning.models import LearningMaterial
 from promotions.models import Promotion
+from portal.recommendations import build_related_content_for_news
 
 from .models import News
 
@@ -17,7 +18,8 @@ def home(request):
     )
     latest_learning = (
         LearningMaterial.objects.filter(is_published=True)
-        .prefetch_related("brands", "categories", "areas", "feature_tags")[:3]
+        .order_by("-created_at")
+        .prefetch_related("brands", "categories", "feature_tags")[:3]
     )
     return render(
         request,
@@ -47,4 +49,11 @@ def news_detail(request, pk):
         pk=pk,
         is_published=True,
     )
-    return render(request, "news/news_detail.html", {"news": news})
+    return render(
+        request,
+        "news/news_detail.html",
+        {
+            "news": news,
+            "related_content": build_related_content_for_news(news),
+        },
+    )

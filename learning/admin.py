@@ -1,10 +1,15 @@
-from collections import defaultdict
-
 from django import forms
 from django.contrib import admin, messages
+from django.conf import settings
+from django.core.files.base import ContentFile
+from django.db import transaction
 from django.forms.models import BaseInlineFormSet
+from django.forms.widgets import ClearableFileInput
+from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.html import format_html_join
 from django.utils.html import strip_tags
+from django.utils.safestring import mark_safe
 
 from catalog.admin_mixins import (
     AdminDuplicateMixin,
@@ -12,18 +17,22 @@ from catalog.admin_mixins import (
     AdminTemplatesAndFiltersMixin,
     render_admin_card_preview,
 )
-from catalog.models import ProductCategoryCharacteristic
+from catalog.models import ProductCategoryCharacteristic, ProductCharacteristic
 from catalog.widgets import RichTextToolbarWidget
 from telegram_bot.services import send_learning_notification, telegram_enabled
 
 from .models import (
     LearningBlock,
+    LearningBlockGalleryImage,
     LearningMaterial,
-    ProductDescriptionImage,
-    ProductFeature,
-    ProductReviewImage,
-    ProductSalesScript,
-    ProductSpecification,
+    PresentationImport,
+)
+from .presentation_import import (
+    PresentationImportError,
+    build_ocr_html,
+    build_slide_html,
+    build_summary,
+    extract_pptx_slides,
 )
 
 
@@ -44,19 +53,26 @@ class LearningMaterialAdminForm(forms.ModelForm):
             "product_short_summary": RichTextToolbarWidget(attrs={"rows": 5}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["title"].label = "Название материала базы знаний"
+        self.fields["summary"].label = "Краткое описание"
+        self.fields["summary"].help_text = "Показывается в списке базы знаний и на главной странице."
+        self.fields["material_type"].label = "Формат материала"
+        self.fields["brands"].label = "Бренды"
+        self.fields["categories"].label = "Категории товаров"
+        self.fields["feature_tags"].label = "Фишки товаров"
+        self.fields["feature_tags"].help_text = (
+            "Например: работает с Алисой, самоочистка, тихий режим, быстрая зарядка."
+        )
+
     def clean(self):
         cleaned_data = super().clean()
         material_type = cleaned_data.get("material_type")
 
         if material_type == "product":
-            required_fields = {
-                "summary": "Добавь краткое описание для карточки товара.",
-                "product_full_description": "Добавь полное описание товара.",
-                "product_short_summary": "Добавь краткое резюмирование.",
-            }
-            for field_name, message in required_fields.items():
-                if not str(cleaned_data.get(field_name) or "").strip():
-                    self.add_error(field_name, message)
+            if not str(cleaned_data.get("summary") or "").strip():
+                self.add_error("summary", "Добавь краткое описание для карточки товара.")
 
             categories = cleaned_data.get("categories")
             if not categories:
@@ -82,45 +98,178 @@ class LearningMaterialAdminForm(forms.ModelForm):
         return cleaned_data
 
 
+class MultipleFileInput(ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    widget = MultipleFileInput
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+
+        if not data:
+            return []
+
+        if isinstance(data, (list, tuple)):
+            return [single_file_clean(item, initial) for item in data]
+
+        return [single_file_clean(data, initial)]
+
+
+class BlockItemsWidget(forms.Textarea):
+    def render(self, name, value, attrs=None, renderer=None):
+        textarea = super().render(name, value, attrs=attrs, renderer=renderer)
+        return mark_safe(
+            '<div class="learning-block-items-root">'
+            f"{textarea}"
+            '<div class="learning-block-items-editor" data-block-items-editor></div>'
+            "</div>"
+        )
+
+
 class LearningBlockAdminForm(forms.ModelForm):
+    gallery_uploads = MultipleFileField(
+        required=False,
+        label="Добавить изображения в галерею",
+        help_text="Можно выбрать сразу несколько файлов. На странице они соберутся в слайдер.",
+    )
+
     class Meta:
         model = LearningBlock
         fields = "__all__"
         widgets = {
             "text": RichTextToolbarWidget(),
+            "items_data": BlockItemsWidget(attrs={"class": "learning-block-items-json", "rows": 1}),
         }
 
-
-class ProductFeatureAdminForm(forms.ModelForm):
-    class Meta:
-        model = ProductFeature
-        fields = "__all__"
-        widgets = {
-            "description": RichTextToolbarWidget(attrs={"rows": 5}),
-            "client_pitch": RichTextToolbarWidget(attrs={"rows": 4}),
-        }
-
-
-class ProductSalesScriptAdminForm(forms.ModelForm):
-    class Meta:
-        model = ProductSalesScript
-        fields = "__all__"
-        widgets = {
-            "script_text": RichTextToolbarWidget(attrs={"rows": 4}),
-        }
-
-
-class ProductSpecificationInlineFormSet(BaseInlineFormSet):
-    def clean(self):
-        super().clean()
-
-        material_type = str(
-            self.data.get("material_type") or getattr(self.instance, "material_type", "")
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["title"].label = "Заголовок секции"
+        self.fields["title"].help_text = (
+            "Необязательно. Например: Фишки модели, Скрипты продаж, Ключевые характеристики."
         )
-        if material_type != "product":
-            return
+        self.fields["caption"].label = "Короткая подпись"
+        self.fields["caption"].help_text = (
+            "Используется для изображений, видео, цитат и файлов. Для фишек и характеристик не нужна."
+        )
+        self.fields["text"].help_text = (
+            "Основной текст для обычного текстового блока или цитаты."
+        )
+        self.fields["items_data"].required = False
+        self.fields["items_data"].help_text = (
+            "Для фишек, скриптов продаж и характеристик ниже появится удобный редактор."
+        )
+        self.fields["video_url"].help_text = "Вставь ссылку на видеообзор или ролик."
+        self.fields["document"].help_text = "Прикрепи PDF, инструкцию, прайс или другой файл."
 
-        filled_specifications = 0
+    def clean_items_data(self):
+        items_data = self.cleaned_data.get("items_data") or []
+        block_type = self.cleaned_data.get("block_type") or self.instance.block_type
+
+        if block_type == "comparison_table":
+            if not isinstance(items_data, dict):
+                return {"models": [], "rows": []}
+
+            models = [
+                str(model or "").strip()
+                for model in items_data.get("models", [])
+                if str(model or "").strip()
+            ]
+            rows = []
+            for row in items_data.get("rows", []):
+                if not isinstance(row, dict):
+                    continue
+
+                parameter = str(row.get("parameter") or "").strip()
+                raw_values = row.get("values") or []
+                if not isinstance(raw_values, list):
+                    raw_values = []
+                values = [
+                    str(raw_values[index] or "").strip()
+                    if index < len(raw_values)
+                    else ""
+                    for index in range(len(models))
+                ]
+
+                if parameter or any(values):
+                    rows.append(
+                        {
+                            "parameter": parameter,
+                            "values": values,
+                        }
+                    )
+
+            return {"models": models, "rows": rows}
+
+        if not isinstance(items_data, list):
+            return []
+
+        cleaned_items = []
+        characteristic_name_map = {}
+
+        if block_type == "specification":
+            characteristic_ids = {
+                int(str(item.get("characteristic_id") or "").strip())
+                for item in items_data
+                if isinstance(item, dict) and str(item.get("characteristic_id") or "").strip().isdigit()
+            }
+            if characteristic_ids:
+                characteristic_name_map = dict(
+                    ProductCharacteristic.objects.filter(pk__in=characteristic_ids).values_list(
+                        "id", "name"
+                    )
+                )
+
+        for item in items_data:
+            if not isinstance(item, dict):
+                continue
+
+            normalized = {key: str(item.get(key) or "").strip() for key in item}
+
+            if block_type == "feature":
+                if normalized.get("title") or normalized.get("description") or normalized.get("pitch"):
+                    cleaned_items.append(
+                        {
+                            "title": normalized.get("title", ""),
+                            "description": normalized.get("description", ""),
+                            "pitch": normalized.get("pitch", ""),
+                        }
+                    )
+            elif block_type == "sales_script":
+                if normalized.get("title") or normalized.get("pitch"):
+                    cleaned_items.append(
+                        {
+                            "title": normalized.get("title", ""),
+                            "pitch": normalized.get("pitch", ""),
+                        }
+                    )
+            elif block_type == "specification":
+                characteristic_id = normalized.get("characteristic_id", "")
+                characteristic_name = (
+                    characteristic_name_map.get(int(characteristic_id))
+                    if characteristic_id.isdigit()
+                    else ""
+                ) or ""
+
+                if characteristic_name or normalized.get("name") or normalized.get("value"):
+                    cleaned_items.append(
+                        {
+                            "sort_order": normalized.get("sort_order", ""),
+                            "characteristic_id": characteristic_id,
+                            "name": characteristic_name or normalized.get("name", ""),
+                            "value": normalized.get("value", ""),
+                        }
+                    )
+
+        return cleaned_items
+
+class LearningBlockInlineFormSet(BaseInlineFormSet):
+    def save(self, commit=True):
+        instances = super().save(commit=commit)
+
+        if not commit:
+            return instances
 
         for form in self.forms:
             if not hasattr(form, "cleaned_data"):
@@ -128,128 +277,126 @@ class ProductSpecificationInlineFormSet(BaseInlineFormSet):
             if form.cleaned_data.get("DELETE"):
                 continue
 
-            characteristic = form.cleaned_data.get("characteristic")
-            value = str(form.cleaned_data.get("value") or "").strip()
-
-            if characteristic and value:
-                filled_specifications += 1
+            block = form.instance
+            if not block.pk:
                 continue
 
-            if characteristic and not value:
-                form.add_error("value", "Укажи значение характеристики.")
-            elif value and not characteristic:
-                form.add_error("characteristic", "Выбери характеристику из базы.")
+            if block.block_type == "image" and block.image and not block.gallery_images.exists():
+                LearningBlockGalleryImage.objects.create(
+                    block=block,
+                    sort_order=10,
+                    image=block.image.name,
+                    caption=block.caption,
+                )
+                block.image = None
+                block.save(update_fields=["image"])
 
-        if filled_specifications == 0:
-            raise forms.ValidationError(
-                "Для товарного материала добавь хотя бы одну характеристику со значением."
+            uploads = form.cleaned_data.get("gallery_uploads") or []
+            if not uploads:
+                continue
+
+            next_sort_order = (
+                block.gallery_images.order_by("-sort_order").values_list("sort_order", flat=True).first()
+                or 0
             )
+            for index, uploaded_file in enumerate(uploads, start=1):
+                LearningBlockGalleryImage.objects.create(
+                    block=block,
+                    sort_order=next_sort_order + index * 10,
+                    image=uploaded_file,
+                )
 
-
-class ProductDescriptionImageInline(admin.StackedInline):
-    model = ProductDescriptionImage
-    extra = 1
-    classes = ("product-only", "section-description-images")
-    verbose_name = "Изображение полного описания"
-    verbose_name_plural = "Изображения для полного описания"
-    fieldsets = (
-        (
-            "Изображение",
-            {
-                "fields": ("sort_order", "image", "caption"),
-                "description": "Добавь изображения, которые идут после полного описания.",
-            },
-        ),
-    )
-
-
-class ProductReviewImageInline(admin.StackedInline):
-    model = ProductReviewImage
-    extra = 1
-    classes = ("product-only", "section-review-images")
-    verbose_name = "Изображение текстового обзора"
-    verbose_name_plural = "Изображения для текстового обзора"
-    fieldsets = (
-        (
-            "Изображение",
-            {
-                "fields": ("sort_order", "image", "caption"),
-                "description": "Добавь изображения, которые идут после текстового обзора.",
-            },
-        ),
-    )
-
-
-class ProductFeatureInline(admin.StackedInline):
-    model = ProductFeature
-    form = ProductFeatureAdminForm
-    extra = 1
-    classes = ("product-only", "section-product-features")
-    verbose_name = "Фишка товара"
-    verbose_name_plural = "5. Фишки и как преподносить клиенту"
-    fieldsets = (
-        (
-            "Фишка",
-            {
-                "fields": ("sort_order", "title", "description", "client_pitch"),
-                "description": "Сначала название и описание фишки, ниже фраза в формате цитаты: как это подать клиенту.",
-            },
-        ),
-    )
-
-
-class ProductSalesScriptInline(admin.StackedInline):
-    model = ProductSalesScript
-    form = ProductSalesScriptAdminForm
-    extra = 1
-    classes = ("product-only", "section-product-scripts")
-    verbose_name = "Скрипт продаж"
-    verbose_name_plural = "6. Скрипты продаж"
-    fieldsets = (
-        (
-            "Скрипт",
-            {
-                "fields": ("sort_order", "title", "script_text"),
-                "description": "Укажи название скрипта и сам текст, который будет показан отдельной цитатой.",
-            },
-        ),
-    )
-
-
-class ProductSpecificationInline(admin.TabularInline):
-    model = ProductSpecification
-    formset = ProductSpecificationInlineFormSet
-    extra = 0
-    classes = ("product-only", "section-product-specifications")
-    verbose_name = "Характеристика"
-    verbose_name_plural = "7. Характеристики"
-    fields = ("sort_order", "characteristic", "value")
-    autocomplete_fields = ("characteristic",)
+        return instances
 
 
 class LearningBlockInline(admin.StackedInline):
     model = LearningBlock
     form = LearningBlockAdminForm
+    formset = LearningBlockInlineFormSet
     extra = 1
-    classes = ("general-only", "section-general-blocks")
-    verbose_name = "Блок содержимого"
-    verbose_name_plural = "Дополнительные блоки для обычного материала"
+    classes = ("section-general-blocks",)
+    verbose_name = "Блок страницы"
+    verbose_name_plural = "Блоки страницы"
+    readonly_fields = ("gallery_preview",)
     fieldsets = (
         (
             "Основное",
             {
-                "fields": ("sort_order", "block_type", "title", "caption"),
-                "description": "Выбери, что именно нужно вставить в материал.",
+                "fields": (
+                    "sort_order",
+                    "block_type",
+                    "title",
+                    "caption",
+                ),
+                "description": (
+                    "Выбери тип блока и заполни только нужные поля. "
+                    "Для фишек, скриптов продаж и характеристик ниже появится отдельный удобный редактор."
+                ),
             },
         ),
         (
             "Содержимое блока",
             {
-                "fields": ("text", "image", "video_url", "document"),
+                "fields": (
+                    "items_data",
+                    "text",
+                    "gallery_uploads",
+                    "gallery_preview",
+                    "image",
+                    "video_url",
+                    "document",
+                ),
             },
         ),
     )
 
+    @admin.display(description="Текущая галерея")
+    def gallery_preview(self, obj):
+        if not obj or not obj.pk:
+            return "Сохрани блок, и сюда подтянется загруженная галерея."
+
+        gallery_items = list(obj.gallery_images.all())
+        if not gallery_items and not obj.image:
+            return "Изображения ещё не загружены."
+
+        previews = []
+        for item in gallery_items:
+            if not item.image:
+                continue
+            previews.append(
+                (
+                    item.image.url,
+                    item.caption or "",
+                )
+            )
+
+        if not previews and obj.image:
+            previews.append((obj.image.url, obj.caption or ""))
+
+        return format_html(
+            '<div class="learning-gallery-preview">{}</div>',
+            format_html_join(
+                "",
+                (
+                    '<figure class="learning-gallery-preview__item">'
+                    '<img src="{}" alt="{}" />'
+                    "{}</figure>"
+                ),
+                (
+                    (
+                        url,
+                        caption or "Изображение блока",
+                        format_html(
+                            '<figcaption>{}</figcaption>',
+                            caption,
+                        )
+                        if caption
+                        else "",
+                    )
+                    for url, caption in previews
+                ),
+            ),
+        )
 
 @admin.register(LearningMaterial)
 class LearningMaterialAdmin(
@@ -264,7 +411,7 @@ class LearningMaterialAdmin(
     template_presets = (
         {
             "key": "product",
-            "label": "Создать: товар",
+            "label": "Создать: товарный материал",
             "initial": {
                 "material_type": "product",
                 "title": "Новый товарный материал",
@@ -329,7 +476,6 @@ class LearningMaterialAdmin(
     filter_horizontal = (
         "brands",
         "categories",
-        "areas",
         "feature_tags",
         "telegram_target_groups",
         "telegram_target_subscribers",
@@ -342,52 +488,29 @@ class LearningMaterialAdmin(
         "duplicate_selected",
         "send_selected_to_telegram",
     )
-    inlines = [
-        ProductDescriptionImageInline,
-        ProductReviewImageInline,
-        ProductFeatureInline,
-        ProductSalesScriptInline,
-        ProductSpecificationInline,
-        LearningBlockInline,
-    ]
+    inlines = [LearningBlockInline]
     fieldsets = (
         (
-            "1. Краткое описание для превью и название",
-            {
-                "fields": ("title", "summary", ("cover_image", "cover_preview"), "card_preview"),
-                "classes": ("article-section", "section-preview"),
-                "description": "Сначала название, затем короткое описание для карточки и списка материалов.",
-            },
-        ),
-        (
-            "2. Полное описание",
-            {
-                "fields": ("product_full_description",),
-                "classes": ("article-section", "product-only", "section-full-description"),
-                "description": "Основной текст о товаре. Изображения этого раздела добавляются сразу следующим блоком.",
-            },
-        ),
-        (
-            "3. Видеообзор",
-            {
-                "fields": ("product_video_review_url",),
-                "classes": ("article-section", "product-only", "section-video-review"),
-                "description": "Вставь обычную ссылку на YouTube. На сайте видео будет встроено и красиво выровнено по центру.",
-            },
-        ),
-        (
-            "4. Обзор текстом",
-            {
-                "fields": ("product_text_review",),
-                "classes": ("article-section", "product-only", "section-text-review"),
-                "description": "Здесь размещается подробный обзор текста. Изображения к нему добавляются следующим блоком.",
-            },
-        ),
-        (
-            "Тип материала и публикация",
+            "Карточка базы знаний",
             {
                 "fields": (
+                    "title",
+                    "summary",
                     "material_type",
+                    ("cover_image", "cover_preview"),
+                    "card_preview",
+                ),
+                "classes": ("article-section", "section-preview"),
+                "description": (
+                    "Сначала название, короткое описание для карточки и тип материала. "
+                    "Затем можно собирать саму страницу."
+                ),
+            },
+        ),
+        (
+            "Публикация",
+            {
+                "fields": (
                     "is_published",
                     "public_link",
                     "duplicate_link",
@@ -401,38 +524,20 @@ class LearningMaterialAdmin(
                 ),
                 "classes": ("article-section", "section-material-mode"),
                 "description": (
-                    "Если включить отправку, опубликованный материал можно направить "
-                    "всем личным подписчикам, всем подписчикам вместе с Telegram-группами, "
-                    "только Telegram-группам или только выбранной аудитории."
+                    "Этот блок лучше настраивать в самом конце, когда материал уже готов к публикации. "
+                    "При необходимости отсюда же можно сразу отправить его в Telegram."
                 ),
             },
         ),
         (
-            "8. Краткое резюмирование",
-            {
-                "fields": ("product_short_summary",),
-                "classes": ("article-section", "product-only", "section-short-summary"),
-                "description": "Коротко подведи итог: кому подходит товар и в чем его главная ценность.",
-            },
-        ),
-        (
-            "Связи с брендами, темами и метками",
+            "Бренды, категории и фишки",
             {
                 "fields": (
                     "brands",
                     "categories",
-                    "areas",
                     "feature_tags",
                 ),
                 "classes": ("article-section", "section-links"),
-            },
-        ),
-        (
-            "Обычный режим для не товарных материалов",
-            {
-                "fields": ("content",),
-                "classes": ("article-section", "general-only", "section-general-content"),
-                "description": "Этот раздел нужен для процессов, инструкций и других материалов, которые не оформляются как карточка товара.",
             },
         ),
         (
@@ -552,71 +657,41 @@ class LearningMaterialAdmin(
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
         adminform = context.get("adminform")
         inline_admin_formsets = context.get("inline_admin_formsets", [])
-        category_characteristics_map = defaultdict(list)
-
-        for link in (
-            ProductCategoryCharacteristic.objects.select_related("characteristic")
-            .order_by("category_id", "sort_order", "characteristic__name")
-        ):
-            category_characteristics_map[str(link.category_id)].append(
-                {
-                    "id": link.characteristic_id,
-                    "name": link.characteristic.name,
-                    "sort_order": link.sort_order,
-                }
-            )
 
         if adminform:
+            category_characteristics_map = {}
+            for link in (
+                ProductCategoryCharacteristic.objects.select_related("characteristic")
+                .order_by("category_id", "sort_order", "characteristic__name")
+            ):
+                category_characteristics_map.setdefault(str(link.category_id), []).append(
+                    {
+                        "id": link.characteristic_id,
+                        "name": link.characteristic.name,
+                        "sort_order": link.sort_order,
+                    }
+                )
+
             context.update(
                 {
                     "preview_fieldset": self._find_fieldset(adminform, "section-preview"),
-                    "full_description_fieldset": self._find_fieldset(
-                        adminform, "section-full-description"
-                    ),
-                    "video_review_fieldset": self._find_fieldset(
-                        adminform, "section-video-review"
-                    ),
-                    "text_review_fieldset": self._find_fieldset(
-                        adminform, "section-text-review"
-                    ),
-                    "short_summary_fieldset": self._find_fieldset(
-                        adminform, "section-short-summary"
-                    ),
                     "material_mode_fieldset": self._find_fieldset(
                         adminform, "section-material-mode"
                     ),
                     "links_fieldset": self._find_fieldset(
                         adminform, "section-links"
                     ),
-                    "general_content_fieldset": self._find_fieldset(
-                        adminform, "section-general-content"
-                    ),
                     "system_fieldset": self._find_fieldset(adminform, "section-system"),
-                    "description_images_inline": self._find_inline(
-                        inline_admin_formsets, "section-description-images"
-                    ),
-                    "review_images_inline": self._find_inline(
-                        inline_admin_formsets, "section-review-images"
-                    ),
-                    "product_features_inline": self._find_inline(
-                        inline_admin_formsets, "section-product-features"
-                    ),
-                    "product_scripts_inline": self._find_inline(
-                        inline_admin_formsets, "section-product-scripts"
-                    ),
-                    "product_specs_inline": self._find_inline(
-                        inline_admin_formsets, "section-product-specifications"
-                    ),
                     "general_blocks_inline": self._find_inline(
                         inline_admin_formsets, "section-general-blocks"
                     ),
-                    "category_characteristics_map": dict(category_characteristics_map),
+                    "category_characteristics_map": category_characteristics_map,
+                    "all_product_characteristics": list(
+                        ProductCharacteristic.objects.order_by("name").values("id", "name")
+                    ),
+                    "product_characteristic_add_url": reverse("admin:catalog_productcharacteristic_add"),
                 }
             )
-
-            product_specs_inline = context.get("product_specs_inline")
-            if product_specs_inline:
-                context["product_specs_prefix"] = product_specs_inline.formset.prefix
 
         return super().render_change_form(
             request,
@@ -657,13 +732,14 @@ class LearningMaterialAdmin(
         )
 
     def clone_related_objects(self, request, source, clone):
+        block_clone_map = {}
+
         related_sets = (
             ("product_description_images", "material"),
             ("product_review_images", "material"),
             ("product_features", "material"),
             ("product_sales_scripts", "material"),
             ("product_specifications", "material"),
-            ("blocks", "material"),
         )
 
         for related_name, relation_field in related_sets:
@@ -671,6 +747,19 @@ class LearningMaterialAdmin(
                 item.pk = None
                 setattr(item, relation_field, clone)
                 item.save()
+
+        for block in source.blocks.all():
+            original_pk = block.pk
+            block.pk = None
+            block.material = clone
+            block.save()
+            block_clone_map[original_pk] = block
+
+        for original_pk, cloned_block in block_clone_map.items():
+            for gallery_item in LearningBlockGalleryImage.objects.filter(block_id=original_pk):
+                gallery_item.pk = None
+                gallery_item.block = cloned_block
+                gallery_item.save()
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         if db_field.name == "telegram_target_subscribers":
@@ -689,3 +778,172 @@ class LearningMaterialAdmin(
                 )
             )
         return super().formfield_for_manytomany(db_field, request, **kwargs)
+
+
+@admin.register(PresentationImport)
+class PresentationImportAdmin(admin.ModelAdmin):
+    list_display = (
+        "title_or_file",
+        "material_link",
+        "publish_material",
+        "created_at",
+    )
+    list_filter = ("publish_material", "created_at")
+    search_fields = ("title", "presentation", "material__title")
+    readonly_fields = (
+        "material_link",
+        "import_report",
+        "created_at",
+        "updated_at",
+    )
+    fields = (
+        "title",
+        "presentation",
+        "publish_material",
+        "material_link",
+        "import_report",
+        "created_at",
+        "updated_at",
+    )
+    actions = ("recreate_materials",)
+
+    @admin.display(description="Презентация")
+    def title_or_file(self, obj):
+        return obj.resolved_title
+
+    @admin.display(description="Материал базы знаний")
+    def material_link(self, obj):
+        if not obj or not obj.material_id:
+            return "Материал будет создан после сохранения презентации."
+
+        return format_html(
+            '<a href="{}">Открыть материал в админке</a>',
+            reverse("admin:learning_learningmaterial_change", args=[obj.material_id]),
+        )
+
+    @admin.action(description="Пересоздать материалы из выбранных презентаций")
+    def recreate_materials(self, request, queryset):
+        recreated = 0
+        failed = 0
+
+        for presentation_import in queryset:
+            try:
+                self._create_material_from_presentation(
+                    presentation_import,
+                    replace_existing=True,
+                )
+            except PresentationImportError as exc:
+                failed += 1
+                presentation_import.import_report = str(exc)
+                presentation_import.save(update_fields=["import_report", "updated_at"])
+                continue
+            recreated += 1
+
+        self.message_user(
+            request,
+            f"Пересоздано материалов: {recreated}. Ошибок: {failed}.",
+            level=messages.SUCCESS if recreated else messages.WARNING,
+        )
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+
+        if obj.material_id:
+            return
+
+        try:
+            self._create_material_from_presentation(obj)
+        except PresentationImportError as exc:
+            obj.import_report = str(exc)
+            obj.save(update_fields=["import_report", "updated_at"])
+            self.message_user(request, str(exc), level=messages.ERROR)
+            return
+
+        self.message_user(
+            request,
+            "Материал базы знаний создан из презентации.",
+            level=messages.SUCCESS,
+        )
+
+    def _create_material_from_presentation(self, obj, replace_existing=False):
+        slides = extract_pptx_slides(
+            obj.presentation.path,
+            enable_ocr=settings.PRESENTATION_OCR_ENABLED,
+            ocr_languages=settings.PRESENTATION_OCR_LANGUAGES,
+            ocr_timeout=settings.PRESENTATION_OCR_TIMEOUT,
+            ocr_tesseract_cmd=settings.PRESENTATION_OCR_TESSERACT_CMD,
+            ocr_tessdata_dir=settings.PRESENTATION_OCR_TESSDATA_DIR,
+        )
+
+        with transaction.atomic():
+            if replace_existing and obj.material_id:
+                obj.material.delete()
+                obj.material = None
+
+            material = LearningMaterial.objects.create(
+                title=obj.resolved_title,
+                summary=build_summary(slides),
+                content=(
+                    "<p>Материал автоматически создан из загруженной презентации. "
+                    "Проверь текст и при необходимости дополни блоки.</p>"
+                ),
+                material_type="instruction",
+                is_published=obj.publish_material,
+            )
+
+            for index, slide in enumerate(slides, start=1):
+                base_sort_order = index * 100
+
+                if slide.paragraphs:
+                    LearningBlock.objects.create(
+                        material=material,
+                        sort_order=base_sort_order + 10,
+                        block_type="text",
+                        title=slide.title,
+                        text=build_slide_html(slide),
+                        caption=f"Слайд {slide.number}",
+                    )
+
+                if slide.images:
+                    image_block = LearningBlock.objects.create(
+                        material=material,
+                        sort_order=base_sort_order + 20,
+                        block_type="image",
+                        title=slide.title,
+                        caption=f"Слайд {slide.number}",
+                    )
+                    for image_index, image in enumerate(slide.images, start=1):
+                        LearningBlockGalleryImage.objects.create(
+                            block=image_block,
+                            sort_order=image_index * 10,
+                            image=ContentFile(
+                                image.content,
+                                name=f"slide-{slide.number}-{image_index}-{image.filename}",
+                            ),
+                            caption=f"Слайд {slide.number}",
+                        )
+
+                if slide.ocr_paragraphs:
+                    LearningBlock.objects.create(
+                        material=material,
+                        sort_order=base_sort_order + 30,
+                        block_type="text",
+                        title=(
+                            f"{slide.title}: текст с изображений"
+                            if slide.title
+                            else f"Слайд {slide.number}: текст с изображений"
+                        ),
+                        text=build_ocr_html(slide),
+                        caption=f"Слайд {slide.number}, распознано с изображений",
+                    )
+
+            obj.material = material
+            image_count = sum(len(slide.images) for slide in slides)
+            ocr_slide_count = sum(1 for slide in slides if slide.ocr_paragraphs)
+            obj.import_report = (
+                f"Создан материал «{material.title}». "
+                f"Импортировано слайдов: {len(slides)}. "
+                f"Изображений: {image_count}. "
+                f"Слайдов с распознанным текстом: {ocr_slide_count}."
+            )
+            obj.save(update_fields=["material", "import_report", "updated_at"])

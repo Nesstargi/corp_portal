@@ -25,10 +25,12 @@
           {% for category in material.categories.all %}
             <span class="chip">{{ category.name }}</span>
           {% endfor %}
-          {% for area in material.areas.all %}
-            <span class="chip">{{ area.name }}</span>
-          {% endfor %}
         </div>
+        {% if material.material_type == "product" %}
+          <div class="section-link-row">
+            <a class="button button--ghost" href="{% url 'learning_list' %}">Вернуться к списку материалов</a>
+          </div>
+        {% endif %}
       </div>
 
       {% if material.cover_image %}
@@ -38,7 +40,12 @@
       {% endif %}
 
       <article class="card stream-content">
-        {% if material.material_type == "product" and material.has_structured_product_content %}
+        {% if material.material_type == "product" %}
+          {% if material.blocks.all %}
+            {% include "learning/includes/learning_blocks.html" %}
+          {% endif %}
+
+          {% if material.has_structured_product_content %}
           {% if material.product_full_description %}
             <section class="content-block article-section">
               <h2>Полное описание</h2>
@@ -208,38 +215,13 @@
               <div class="rich-copy">{{ material.product_short_summary|safe }}</div>
             </section>
           {% endif %}
-        {% else %}
-          {% if material.content %}
-            <div class="rich-copy">{{ material.content|safe }}</div>
           {% endif %}
-
-          {% for block in material.blocks.all %}
-            <section class="content-block">
-              {% if block.title %}
-                <h3>{{ block.title }}</h3>
-              {% endif %}
-
-              {% if block.block_type == "text" and block.text %}
-                <div class="rich-copy">{{ block.text|safe }}</div>
-              {% elif block.block_type == "image" and block.image %}
-                <figure class="article-image article-image--single">
-                  <img src="{{ block.image.url }}" alt="{{ block.caption|default:block.title }}" />
-                </figure>
-              {% elif block.block_type == "quote" and block.text %}
-                <blockquote class="rich-copy">{{ block.text|safe }}</blockquote>
-              {% elif block.block_type == "video" and block.video_url %}
-                <p><a class="button button--ghost" href="{{ block.video_url }}" target="_blank" rel="noreferrer">Открыть видео</a></p>
-              {% elif block.block_type == "file" and block.document %}
-                <p><a class="button button--ghost" href="{{ block.document.url }}" target="_blank" rel="noreferrer">Скачать файл</a></p>
-              {% endif %}
-
-              {% if block.caption %}
-                <p class="meta">{{ block.caption }}</p>
-              {% endif %}
-            </section>
-          {% endfor %}
+        {% else %}
+          {% include "learning/includes/learning_blocks.html" %}
         {% endif %}
       </article>
     </div>
   </section>
+
+  {% include "includes/related_content.html" %}
 {% endblock %}

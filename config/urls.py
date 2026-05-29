@@ -3,13 +3,15 @@ from django.contrib import admin
 from django.urls import include, path, re_path
 from django.views.static import serve
 
+from config.admin_dashboard import configure_admin_site
 from config import views as config_views
 from news import views as news_views
 from search import views as search_views
 
-admin.site.site_header = "Панель управления CorpPortal"
+admin.site.site_header = "Админка CorpPortal"
 admin.site.site_title = "CorpPortal"
-admin.site.index_title = "Материалы, новости и справочники"
+admin.site.index_title = "Рабочие разделы"
+configure_admin_site(admin.site)
 
 
 urlpatterns = [

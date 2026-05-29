@@ -29,7 +29,7 @@ class Command(BaseCommand):
                 numchild=0,
                 url_path="/home/",
                 intro=(
-                    "Корпоративный портал для новостей, обучения, акций, продуктовых "
+                    "Корпоративный портал для новостей, базы знаний, акций, продуктовых "
                     "обновлений и внутренних материалов."
                 ),
             )
@@ -62,15 +62,15 @@ class Command(BaseCommand):
 
         if not LearningIndexPage.objects.child_of(homepage).filter(slug="learning").exists():
             learning_index = LearningIndexPage(
-                title="Обучающие материалы",
+                title="База знаний",
                 slug="learning",
                 intro=(
-                    "Материалы по брендам, категориям, 1С, акциям, кредитным продуктам "
+                    "Материалы по брендам, категориям, фишкам, акциям "
                     "и внутренним процессам."
                 ),
             )
             homepage.add_child(instance=learning_index)
             learning_index.save_revision().publish()
-            self.stdout.write(self.style.SUCCESS("Создан раздел обучения."))
+            self.stdout.write(self.style.SUCCESS("Создан раздел базы знаний."))
 
         self.stdout.write(self.style.SUCCESS("Стартовая структура портала готова."))

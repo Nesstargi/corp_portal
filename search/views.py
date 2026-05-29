@@ -6,11 +6,24 @@ from news.models import News
 from promotions.models import Promotion
 
 
+def _block_items_match_query(material, query):
+    normalized_query = query.casefold()
+
+    for block in material.blocks.all():
+        for item in block.structured_items:
+            for value in item.values():
+                if normalized_query in str(value or "").casefold():
+                    return True
+
+    return False
+
+
 def search(request):
     search_query = request.GET.get("query", "").strip()
     news_results = News.objects.none()
     promotion_results = Promotion.objects.none()
     learning_results = LearningMaterial.objects.none()
+    total_results = 0
 
     if search_query:
         news_results = (
@@ -27,6 +40,7 @@ def search(request):
         )
         promotion_results = (
             Promotion.objects.filter(is_published=True)
+            .exclude(promotion_kind=Promotion.KIND_PREORDER)
             .filter(
                 Q(title__icontains=search_query)
                 | Q(summary__icontains=search_query)
@@ -48,6 +62,8 @@ def search(request):
                 | Q(product_text_review__icontains=search_query)
                 | Q(product_short_summary__icontains=search_query)
                 | Q(blocks__text__icontains=search_query)
+                | Q(blocks__title__icontains=search_query)
+                | Q(blocks__caption__icontains=search_query)
                 | Q(product_features__title__icontains=search_query)
                 | Q(product_features__description__icontains=search_query)
                 | Q(product_features__client_pitch__icontains=search_query)
@@ -61,6 +77,22 @@ def search(request):
             )
             .distinct()
         )
+        structured_match_ids = [
+            material.pk
+            for material in LearningMaterial.objects.filter(is_published=True).prefetch_related("blocks")
+            if _block_items_match_query(material, search_query)
+        ]
+        if structured_match_ids:
+            learning_result_ids = set(learning_results.values_list("pk", flat=True))
+            learning_result_ids.update(structured_match_ids)
+            learning_results = LearningMaterial.objects.filter(
+                pk__in=learning_result_ids
+            ).distinct()
+        total_results = (
+            news_results.count()
+            + promotion_results.count()
+            + learning_results.count()
+        )
 
     return render(
         request,
@@ -70,5 +102,9 @@ def search(request):
             "news_results": news_results,
             "promotion_results": promotion_results,
             "learning_results": learning_results,
+            "news_count": news_results.count() if search_query else 0,
+            "promotion_count": promotion_results.count() if search_query else 0,
+            "learning_count": learning_results.count() if search_query else 0,
+            "total_results": total_results,
         },
     )

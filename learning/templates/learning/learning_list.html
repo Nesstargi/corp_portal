@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 
 {% block title %}
-  Обучение | CorpPortal
+  База знаний | CorpPortal
 {% endblock %}
 
 {% block content %}
   <section class="page-header">
     <div class="container">
-      <span class="eyebrow">Обучение</span>
-      <h1>Обучающие материалы</h1>
-      <p class="lead">Фильтруй материалы по бренду, категории товара, области знаний и типу материала.</p>
+      <span class="eyebrow">База знаний</span>
+      <h1>Материалы базы знаний</h1>
+      <p class="lead">Инструкции, товарные карточки, обзоры и скрипты продаж. Фильтруй по бренду, категории и фишкам товара.</p>
 
       <form class="filters" method="get">
         <div class="filter-field">
@@ -31,74 +31,71 @@
           </select>
         </div>
         <div class="filter-field">
-          <label for="area">Область</label>
-          <select id="area" name="area">
-            <option value="">Все области</option>
-            {% for area in knowledge_areas %}
-              <option value="{{ area.slug }}" {% if selected_area == area.slug %}selected{% endif %}>{{ area.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="filter-field">
-          <label for="type">Тип материала</label>
-          <select id="type" name="type">
-            <option value="">Все типы</option>
-            {% for value, label in material_types %}
-              <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+          <label for="feature">Фишка товара</label>
+          <select id="feature" name="feature">
+            <option value="">Все фишки</option>
+            {% for feature in feature_tags %}
+              <option value="{{ feature.slug }}" {% if selected_feature == feature.slug %}selected{% endif %}>{{ feature.name }}</option>
             {% endfor %}
           </select>
         </div>
         <button class="button" type="submit">Применить</button>
         <a class="button button--ghost" href="{% url 'learning_list' %}">Сбросить</a>
       </form>
+
     </div>
   </section>
 
   <section class="section">
-    <div class="container grid grid--three">
-      {% for item in materials %}
-        <a class="card-link learning-card-link" href="{% url 'learning_detail' item.pk %}">
-          <article class="card learning-card">
-            <div
-              class="learning-card__cover{% if item.cover_image %} learning-card__cover--image{% endif %}"
-              {% if item.cover_image %}
-                style="--cover-image: url('{{ item.cover_image.url }}');"
-              {% endif %}
-            >
-              <div class="learning-card__cover-top">
-                <span class="learning-card__type">{{ item.get_material_type_display }}</span>
-                <span class="learning-card__open">Открыть</span>
-              </div>
-            </div>
-
-            <div class="learning-card__body">
-              <h3>{{ item.title }}</h3>
-              {% with preview_text=item.summary|default:item.product_short_summary|default:item.product_full_description|default:item.content|striptags|truncatechars:180 %}
-                <p class="learning-card__excerpt">{{ preview_text }}</p>
-              {% endwith %}
-
-              {% if item.feature_tags.all or item.brands.all or item.categories.all or item.areas.all %}
-                <div class="chips learning-card__chips">
-                  {% for tag in item.feature_tags.all %}
-                    <span class="chip chip--feature">{{ tag.name }}</span>
-                  {% endfor %}
-                  {% for brand in item.brands.all %}
-                    <span class="chip">{{ brand.name }}</span>
-                  {% endfor %}
-                  {% for category in item.categories.all %}
-                    <span class="chip">{{ category.name }}</span>
-                  {% endfor %}
-                  {% for area in item.areas.all %}
-                    <span class="chip">{{ area.name }}</span>
-                  {% endfor %}
+    <div class="container">
+      <div class="section-copy section-copy--split">
+        <div>
+          <span class="eyebrow">База знаний</span>
+          <h2>Подборка материалов</h2>
+        </div>
+        <p class="lead">Карточки собраны так, чтобы быстро открыть нужный материал и не потеряться в деталях.</p>
+      </div>
+      <div class="grid grid--three">
+        {% for item in materials %}
+          <a class="card-link learning-card-link" href="{% url 'learning_detail' item.pk %}">
+            <article class="card learning-card">
+              <div
+                class="learning-card__cover{% if item.cover_image %} learning-card__cover--image{% endif %}"
+                {% if item.cover_image %}
+                  style="--cover-image: url('{{ item.cover_image.url }}');"
+                {% endif %}
+              >
+                <div class="learning-card__cover-top">
+                  <span class="learning-card__type">{{ item.get_material_type_display }}</span>
+                  <span class="learning-card__open">Открыть</span>
                 </div>
-              {% endif %}
-            </div>
-          </article>
-        </a>
-      {% empty %}
-        <div class="empty-state">Материалов по выбранным фильтрам пока нет.</div>
-      {% endfor %}
+              </div>
+
+              <div class="learning-card__body">
+                <h3>{{ item.title }}</h3>
+                {% with preview_text=item.summary|default:item.product_short_summary|default:item.product_full_description|default:item.content|striptags|truncatechars:180 %}
+                  <p class="learning-card__excerpt">{{ preview_text }}</p>
+                {% endwith %}
+                {% if item.feature_tags.all or item.brands.all or item.categories.all %}
+                  <div class="chips learning-card__chips">
+                    {% for tag in item.feature_tags.all %}
+                      <span class="chip chip--feature">{{ tag.name }}</span>
+                    {% endfor %}
+                    {% for brand in item.brands.all %}
+                      <span class="chip">{{ brand.name }}</span>
+                    {% endfor %}
+                    {% for category in item.categories.all %}
+                      <span class="chip">{{ category.name }}</span>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            </article>
+          </a>
+        {% empty %}
+          <div class="empty-state">Материалов по выбранным фильтрам пока нет.</div>
+        {% endfor %}
+      </div>
     </div>
   </section>
 {% endblock %}

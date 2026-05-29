@@ -1,6 +1,7 @@
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
+from portal.recommendations import build_related_content_for_promotion
 
 from .models import Promotion
 
@@ -107,13 +108,17 @@ def promotion_list(request):
         promotions = promotions.filter(start_date__gt=today)
     elif selected_status == "finished":
         promotions = promotions.filter(end_date__lt=today)
+    elif selected_status == "all":
+        pass
     else:
         promotions = promotions.filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
 
     promotion_type_tabs = build_promo_type_tabs(request, promotions)
     promotions = apply_promo_type_filter(promotions, selected_promo_type)
 
-    filter_source = Promotion.objects.exclude(promotion_kind=Promotion.KIND_PREORDER)
+    filter_source = Promotion.objects.filter(is_published=True).exclude(
+        promotion_kind=Promotion.KIND_PREORDER
+    )
     brands = (
         filter_source.exclude(brand="")
         .order_by("brand")
@@ -145,5 +150,8 @@ def promotion_detail(request, slug):
     return render(
         request,
         "promotions/promotion_detail.html",
-        {"promotion": promotion},
+        {
+            "promotion": promotion,
+            "related_content": build_related_content_for_promotion(promotion),
+        },
     )

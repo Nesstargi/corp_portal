@@ -94,5 +94,5 @@ class KnowledgeArea(BaseDirectory):
 
 class FeatureTag(BaseDirectory):
     class Meta(BaseDirectory.Meta):
-        verbose_name = "Фишка или метка"
-        verbose_name_plural = "Фишки и метки"
+        verbose_name = "Фишка товара"
+        verbose_name_plural = "Фишки товаров"

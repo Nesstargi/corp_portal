@@ -37,7 +37,7 @@
 
       <article class="card stream-content">
         {% if news.content %}
-          <p>{{ news.content|linebreaks }}</p>
+          <div class="rich-copy">{{ news.content|linebreaks }}</div>
         {% endif %}
 
         {% for block in news.blocks.all %}
@@ -47,11 +47,13 @@
             {% endif %}
 
             {% if block.block_type == "text" and block.text %}
-              <div>{{ block.text|safe }}</div>
+              <div class="rich-copy">{{ block.text|safe }}</div>
             {% elif block.block_type == "image" and block.image %}
-              <img src="{{ block.image.url }}" alt="{{ block.caption|default:block.title }}" />
+              <figure class="article-image article-image--single">
+                <img src="{{ block.image.url }}" alt="{{ block.caption|default:block.title }}" />
+              </figure>
             {% elif block.block_type == "quote" and block.text %}
-              <blockquote>{{ block.text|safe }}</blockquote>
+              <blockquote class="rich-copy">{{ block.text|safe }}</blockquote>
             {% elif block.block_type == "video" and block.video_url %}
               <p><a class="button button--ghost" href="{{ block.video_url }}" target="_blank" rel="noreferrer">Открыть видео</a></p>
             {% elif block.block_type == "file" and block.document %}
@@ -66,4 +68,6 @@
       </article>
     </div>
   </section>
+
+  {% include "includes/related_content.html" %}
 {% endblock %}

@@ -180,12 +180,16 @@
 
         {% if promotion.cta_url %}
           <section class="content-block article-section">
-            <a class="button" href="{{ promotion.cta_url }}" target="_blank" rel="noreferrer">
-              {{ promotion.cta_label|default:"Открыть акцию" }}
-            </a>
+            <div class="section-link-row">
+              <a class="button" href="{{ promotion.cta_url }}" target="_blank" rel="noreferrer">
+                {{ promotion.cta_label|default:"Открыть акцию" }}
+              </a>
+            </div>
           </section>
         {% endif %}
       </article>
     </div>
   </section>
+
+  {% include "includes/related_content.html" %}
 {% endblock %}
