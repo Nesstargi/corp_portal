@@ -1007,6 +1007,27 @@ h3 {
     align-items: end;
 }
 
+.filter-panel {
+    margin: 22px 0 30px;
+}
+
+.filter-panel__summary {
+    display: none;
+}
+
+.filter-panel > .filters {
+    margin: 0;
+}
+
+.filter-panel > .promo-tabs {
+    margin-top: 12px;
+}
+
+.filter-panel:not([open]) > .filters,
+.filter-panel:not([open]) > .promo-tabs {
+    display: flex;
+}
+
 .filters__actions {
     display: flex;
     gap: 10px;
@@ -1075,6 +1096,7 @@ h3 {
 
 .button:focus-visible,
 .promo-tab:focus-visible,
+.filter-panel__summary:focus-visible,
 .quiz-step:focus-visible,
 .image-slider__button:focus-visible,
 .image-slider__dot:focus-visible {
@@ -2226,6 +2248,66 @@ blockquote {
     .search-bar {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .filter-panel {
+        margin: 16px 0 22px;
+    }
+
+    .filter-panel__summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 48px;
+        padding: 13px 14px;
+        border: 1px solid var(--color-line);
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: var(--shadow-soft);
+        color: var(--color-ink);
+        font-weight: 800;
+        cursor: pointer;
+        list-style: none;
+    }
+
+    .filter-panel__summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .filter-panel__summary::after {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(45deg) translateY(-2px);
+        transition: transform 0.2s ease;
+    }
+
+    .filter-panel[open] .filter-panel__summary::after {
+        transform: rotate(225deg) translate(-2px, -1px);
+    }
+
+    .filter-panel__state::before {
+        content: "Показать";
+        color: var(--color-muted);
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .filter-panel[open] .filter-panel__state::before {
+        content: "Скрыть";
+    }
+
+    .filter-panel:not([open]) > .filters,
+    .filter-panel:not([open]) > .promo-tabs {
+        display: none;
+    }
+
+    .filter-panel > .filters,
+    .filter-panel > .promo-tabs {
+        margin-top: 10px;
     }
 
     .filters,
