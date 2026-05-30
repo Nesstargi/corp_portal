@@ -61,6 +61,15 @@ ADMIN_DASHBOARD_SECTIONS = (
                 "name": "Акции",
                 "description": "Промоцены, подарки, сроки действия, промокоды и условия предложений.",
             },
+            {
+                "app_label": "promotions",
+                "object_name": "PromotionSource",
+                "name": "Импорт акций из Google Sheets",
+                "description": (
+                    "Подключение таблиц с акциями. Добавь ссылку на Google Sheets, "
+                    "затем открой список источников и запусти импорт для выбранной таблицы."
+                ),
+            },
         ),
     },
     {

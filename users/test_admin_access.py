@@ -37,3 +37,11 @@ class AdminAccessTests(TestCase):
 
         self.assertIn("Администраторы", app_names)
         self.assertTrue(admin.site._registry[User].has_module_permission(request))
+
+    def test_promotion_google_sheets_import_is_visible_on_dashboard(self):
+        request = self.build_request(self.superuser)
+        app_list = admin.site.get_app_list(request)
+        content_section = next(app for app in app_list if app["name"] == "Контент сайта")
+        model_names = [model["name"] for model in content_section["models"]]
+
+        self.assertIn("Импорт акций из Google Sheets", model_names)
