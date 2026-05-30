@@ -204,6 +204,16 @@
     background: #eef5f8;
 }
 
+#changelist-form .field-promotion_kind select {
+    min-width: 152px;
+    max-width: 190px;
+}
+
+#changelist-form .field-start_date input,
+#changelist-form .field-end_date input {
+    width: 108px;
+}
+
 .learning-admin-layout {
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);

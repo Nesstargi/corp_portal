@@ -786,6 +786,12 @@ def upsert_mapped_promotion(source, mapped_data, result, seen_keys):
 
     if existing:
         for field_name, field_value in mapped_data.items():
+            if (
+                field_name in {"promotion_kind", "start_date", "end_date"}
+                and not field_value
+                and getattr(existing, field_name)
+            ):
+                continue
             setattr(existing, field_name, field_value)
         existing.save()
         result.updated += 1

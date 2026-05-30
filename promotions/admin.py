@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib import admin, messages
+from django.utils import timezone
 from django.utils.html import format_html, strip_tags
 
 from catalog.admin_mixins import (
@@ -98,23 +99,31 @@ class PromotionAdminForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         promotion_kind = cleaned_data.get("promotion_kind")
-        promo_price = str(cleaned_data.get("promo_price") or "").strip()
-        benefit_value = str(cleaned_data.get("benefit_value") or "").strip()
-        start_date = cleaned_data.get("start_date")
-        end_date = cleaned_data.get("end_date")
+        promo_price = str(
+            cleaned_data.get("promo_price", getattr(self.instance, "promo_price", "")) or ""
+        ).strip()
+        benefit_value = str(
+            cleaned_data.get("benefit_value", getattr(self.instance, "benefit_value", "")) or ""
+        ).strip()
+        start_date = cleaned_data.get("start_date", getattr(self.instance, "start_date", None))
+        end_date = cleaned_data.get("end_date", getattr(self.instance, "end_date", None))
 
-        if promotion_kind == Promotion.KIND_PROMO_PRICE:
+        if "promo_price" in self.fields and promotion_kind == Promotion.KIND_PROMO_PRICE:
             if not promo_price:
                 self.add_error("promo_price", "Для акции со скидкой укажи промоцену.")
 
-        if promotion_kind == Promotion.KIND_GIFT and not benefit_value:
+        if (
+            "benefit_value" in self.fields
+            and promotion_kind == Promotion.KIND_GIFT
+            and not benefit_value
+        ):
             self.add_error("benefit_value", "Для акции с подарком опиши, что получает клиент.")
 
         if start_date and end_date and end_date < start_date:
             self.add_error("end_date", "Дата окончания не может быть раньше даты начала.")
 
         summary = str(cleaned_data.get("summary") or "").strip()
-        if not summary:
+        if "summary" in self.fields and not summary:
             cleaned_data["summary"] = self.build_auto_summary(cleaned_data)
 
         return cleaned_data
@@ -251,7 +260,7 @@ class PromotionAdmin(
     list_display = (
         "cover_thumb",
         "title",
-        "promotion_kind_badge",
+        "promotion_kind",
         "badge",
         "brand",
         "is_published",
@@ -281,7 +290,14 @@ class PromotionAdmin(
         "category",
         "promo_code",
     )
-    list_editable = ("is_published", "is_featured", "sync_with_source")
+    list_editable = (
+        "promotion_kind",
+        "start_date",
+        "end_date",
+        "is_published",
+        "is_featured",
+        "sync_with_source",
+    )
     readonly_fields = (
         "cover_preview",
         "card_preview",
@@ -294,7 +310,15 @@ class PromotionAdmin(
         "source",
         "source_row_key",
     )
-    actions = ("publish_selected", "unpublish_selected", "duplicate_selected")
+    actions = (
+        "set_kind_promo_price",
+        "set_kind_gift",
+        "set_kind_preorder",
+        "clear_kind",
+        "publish_selected",
+        "unpublish_selected",
+        "duplicate_selected",
+    )
     fieldsets = (
         (
             "1. Основа акции",
@@ -411,6 +435,35 @@ class PromotionAdmin(
     @admin.display(description="Выгода")
     def formatted_benefit_value_admin(self, obj):
         return obj.formatted_benefit_value or "—"
+
+    def _set_promotion_kind(self, request, queryset, kind, label):
+        updated = queryset.update(promotion_kind=kind, updated_at=timezone.now())
+        self.message_user(
+            request,
+            f"Для выбранных акций установлен тип «{label}»: {updated}.",
+            level=messages.SUCCESS,
+        )
+
+    @admin.action(description="Назначить тип: промоцена / скидка")
+    def set_kind_promo_price(self, request, queryset):
+        self._set_promotion_kind(
+            request,
+            queryset,
+            Promotion.KIND_PROMO_PRICE,
+            "Промоцена / скидка / промо",
+        )
+
+    @admin.action(description="Назначить тип: подарок")
+    def set_kind_gift(self, request, queryset):
+        self._set_promotion_kind(request, queryset, Promotion.KIND_GIFT, "Подарок")
+
+    @admin.action(description="Назначить тип: предзаказ")
+    def set_kind_preorder(self, request, queryset):
+        self._set_promotion_kind(request, queryset, Promotion.KIND_PREORDER, "Предзаказ")
+
+    @admin.action(description="Очистить тип акции")
+    def clear_kind(self, request, queryset):
+        self._set_promotion_kind(request, queryset, "", "Не указан")
 
     @admin.action(description="Опубликовать выбранные акции")
     def publish_selected(self, request, queryset):
