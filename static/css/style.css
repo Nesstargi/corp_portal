@@ -71,9 +71,12 @@ img {
 }
 
 .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
     background: #111111;
     color: #fff;
-    padding: 18px 0;
+    padding: 14px 0;
     box-shadow: 0 12px 26px rgba(0, 0, 0, 0.16);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -102,6 +105,12 @@ img {
     color: rgba(255, 255, 255, 0.7);
     font-size: 14px;
     max-width: 34ch;
+}
+
+.nav-toggle,
+.nav__drawer-header,
+.nav-backdrop {
+    display: none;
 }
 
 .nav {
@@ -136,6 +145,12 @@ img {
     color: var(--color-accent);
     border-color: var(--color-accent);
     outline: 2px solid rgba(255, 106, 0, 0.35);
+    outline-offset: 3px;
+}
+
+.nav-toggle:focus-visible,
+.nav__close:focus-visible {
+    outline: 2px solid rgba(255, 106, 0, 0.72);
     outline-offset: 3px;
 }
 
@@ -2092,23 +2107,145 @@ blockquote {
 }
 
 @media (max-width: 860px) {
+    .site-header {
+        padding: 9px 0;
+    }
+
     .site-header__inner {
-        align-items: flex-start;
-        flex-direction: column;
+        align-items: center;
+        flex-direction: row;
+        gap: 12px;
+    }
+
+    .site-brand {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .logo {
+        font-size: 26px;
+        line-height: 1.1;
+    }
+
+    .logo-subtitle {
+        display: none;
+    }
+
+    .nav-toggle {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        margin-left: auto;
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #ffffff;
+        cursor: pointer;
+        align-content: center;
+        gap: 4px;
+    }
+
+    .nav-toggle__line {
+        display: block;
+        width: 100%;
+        height: 2px;
+        border-radius: 999px;
+        background: currentColor;
     }
 
     .nav {
-        width: 100%;
+        position: fixed;
+        top: 0;
+        right: 0;
+        z-index: 2;
+        display: flex;
+        width: min(84vw, 320px);
+        height: 100vh;
+        height: 100dvh;
+        padding: 16px;
+        overflow-y: auto;
+        flex-direction: column;
         flex-wrap: nowrap;
-        overflow-x: auto;
-        padding-bottom: 6px;
-        scrollbar-width: thin;
-        margin-inline: -2px;
+        align-items: stretch;
+        gap: 2px;
+        background: #111111;
+        box-shadow: -18px 0 42px rgba(0, 0, 0, 0.28);
+        transform: translateX(105%);
+        visibility: hidden;
+        transition: transform 0.24s ease, visibility 0.24s ease;
+    }
+
+    .nav.is-open {
+        transform: translateX(0);
+        visibility: visible;
+    }
+
+    .nav__drawer-header {
+        display: flex;
+        min-height: 48px;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.68);
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .nav__close {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #ffffff;
+        cursor: pointer;
+        place-items: center;
+        font: inherit;
+        font-size: 28px;
+        line-height: 1;
     }
 
     .nav a {
-        white-space: nowrap;
-        padding: 10px 2px 6px;
+        min-height: 48px;
+        padding: 12px 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+    }
+
+    .nav a:hover,
+    .nav a.is-active {
+        border-color: rgba(255, 106, 0, 0.35);
+        background: rgba(255, 106, 0, 0.09);
+    }
+
+    .nav-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        display: block;
+        border: 0;
+        background: rgba(0, 0, 0, 0.48);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.24s ease, visibility 0.24s ease;
+    }
+
+    .nav-backdrop.is-visible {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    body.nav-drawer-open {
+        overflow: hidden;
     }
 
     .promo-tabs {
@@ -2358,7 +2495,7 @@ blockquote {
 
 @media (max-width: 560px) {
     .site-header {
-        padding: 14px 0;
+        padding: 9px 0;
     }
 
     .site-header__inner {
@@ -2431,7 +2568,7 @@ blockquote {
     }
 
     .logo {
-        font-size: 28px;
+        font-size: 24px;
     }
 
     .logo-subtitle {
@@ -2501,7 +2638,7 @@ blockquote {
     }
 
     .logo {
-        font-size: 25px;
+        font-size: 23px;
     }
 
     .logo-subtitle {

@@ -15,11 +15,27 @@
     <a class="skip-link" href="#main-content">Перейти к содержимому</a>
     <header class="site-header">
       <div class="container site-header__inner">
-        <div>
+        <div class="site-brand">
           <a class="logo" href="{% url 'home' %}">CorpPortal</a>
           <p class="logo-subtitle">Новости, акции и внутренняя база знаний</p>
         </div>
-        <nav class="nav" aria-label="Основная навигация">
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-controls="primary-navigation"
+          aria-expanded="false"
+          aria-label="Открыть меню"
+          data-nav-toggle
+        >
+          <span class="nav-toggle__line"></span>
+          <span class="nav-toggle__line"></span>
+          <span class="nav-toggle__line"></span>
+        </button>
+        <nav class="nav" id="primary-navigation" aria-label="Основная навигация" data-nav-drawer>
+          <div class="nav__drawer-header">
+            <span>Меню</span>
+            <button class="nav__close" type="button" aria-label="Закрыть меню" data-nav-close>&times;</button>
+          </div>
           <a href="{% url 'home' %}"{% if request.resolver_match.url_name == 'home' %} class="is-active" aria-current="page"{% endif %}>Главная</a>
           <a href="{% url 'news_list' %}"{% if request.resolver_match.url_name == 'news_list' or request.resolver_match.url_name == 'news_detail' %} class="is-active" aria-current="page"{% endif %}>Новости</a>
           <a href="{% url 'promotion_list' %}"{% if request.resolver_match.url_name == 'promotion_list' or request.resolver_match.url_name == 'promotion_detail' %} class="is-active" aria-current="page"{% endif %}>Акции</a>
@@ -27,6 +43,7 @@
         </nav>
       </div>
     </header>
+    <button class="nav-backdrop" type="button" aria-label="Закрыть меню" data-nav-backdrop></button>
 
     <main class="site-main" id="main-content">
       {% block content %}{% endblock %}
@@ -39,5 +56,6 @@
     </footer>
     <script src="{% static 'js/site-slider.js' %}"></script>
     <script src="{% static 'js/mobile-filters.js' %}"></script>
+    <script src="{% static 'js/mobile-navigation.js' %}"></script>
   </body>
 </html>
