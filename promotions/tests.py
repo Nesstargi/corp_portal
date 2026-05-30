@@ -130,6 +130,7 @@ class PromotionAdminListEditingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'name="form-0-promotion_kind"')
+        self.assertContains(response, 'size="1"')
         self.assertContains(response, 'name="form-0-start_date"')
         self.assertContains(response, 'name="form-0-end_date"')
 

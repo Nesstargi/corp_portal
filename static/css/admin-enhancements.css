@@ -205,8 +205,17 @@
 }
 
 #changelist-form .field-promotion_kind select {
-    min-width: 152px;
-    max-width: 190px;
+    display: block;
+    width: 174px;
+    min-width: 174px;
+    max-width: 174px;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 4px 26px 4px 6px;
+    overflow: hidden;
+    border-radius: 4px;
+    line-height: 1.2;
+    white-space: nowrap;
 }
 
 #changelist-form .field-start_date input,

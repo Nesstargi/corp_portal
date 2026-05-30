@@ -92,6 +92,7 @@ class PromotionAdminForm(forms.ModelForm):
         model = Promotion
         fields = "__all__"
         widgets = {
+            "promotion_kind": forms.Select(attrs={"size": "1"}),
             "summary": RichTextToolbarWidget(attrs={"rows": 5}),
             "details": RichTextToolbarWidget(attrs={"rows": 10}),
         }
@@ -401,6 +402,12 @@ class PromotionAdmin(
             "all": ("css/admin-enhancements.css",),
         }
         js = ("js/admin-enhancements.js", "js/promotion-admin.js")
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        formfield = super().formfield_for_dbfield(db_field, request, **kwargs)
+        if db_field.name == "promotion_kind" and formfield:
+            formfield.widget.attrs["size"] = "1"
+        return formfield
 
     @admin.display(description="Как будет выглядеть карточка")
     def card_preview(self, obj):
