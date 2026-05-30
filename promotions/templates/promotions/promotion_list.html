@@ -11,7 +11,12 @@
       <h1>Актуальные акции</h1>
       <p class="lead">Наши самые выгодные промо-предложения. Для точного поиска воспользуйтесь фильтрами.</p>
 
-      <details class="filter-panel" {% if search_query or selected_brand or selected_status or selected_promo_type %}open{% endif %}>
+      <details
+        class="filter-panel"
+        data-filter-panel
+        data-has-active-filters="{% if search_query or selected_brand or selected_status %}true{% else %}false{% endif %}"
+        open
+      >
         <summary class="filter-panel__summary">
           <span>Фильтры</span>
           <span class="filter-panel__state" aria-hidden="true"></span>
@@ -47,18 +52,19 @@
           </div>
         </form>
 
-        <div class="promo-tabs" aria-label="Тип акции">
-          {% for tab in promotion_type_tabs %}
-            <a
-              class="promo-tab{% if selected_promo_type == tab.key %} is-active{% endif %}"
-              href="{{ tab.url }}"
-            >
-              <span>{{ tab.label }}</span>
-              <span class="promo-tab__count">{{ tab.count }}</span>
-            </a>
-            {% endfor %}
-        </div>
       </details>
+
+      <div class="promo-tabs" aria-label="Тип акции">
+        {% for tab in promotion_type_tabs %}
+          <a
+            class="promo-tab{% if selected_promo_type == tab.key %} is-active{% endif %}"
+            href="{{ tab.url }}"
+          >
+            <span>{{ tab.label }}</span>
+            <span class="promo-tab__count">{{ tab.count }}</span>
+          </a>
+        {% endfor %}
+      </div>
     </div>
   </section>
 

@@ -11,7 +11,12 @@
       <h1>Материалы базы знаний</h1>
       <p class="lead">Инструкции, товарные карточки, обзоры и скрипты продаж. Фильтруй по бренду, категории и фишкам товара.</p>
 
-      <details class="filter-panel" {% if selected_brand or selected_category or selected_feature %}open{% endif %}>
+      <details
+        class="filter-panel"
+        data-filter-panel
+        data-has-active-filters="{% if selected_brand or selected_category or selected_feature %}true{% else %}false{% endif %}"
+        open
+      >
         <summary class="filter-panel__summary">
           <span>Фильтры</span>
           <span class="filter-panel__state" aria-hidden="true"></span>
