@@ -13,7 +13,7 @@
         </div>
         <h1>{{ material.title }}</h1>
         {% if material.summary %}
-          <p class="lead">{{ material.summary }}</p>
+          <div class="lead rich-copy rich-copy--summary">{{ material.summary|safe }}</div>
         {% endif %}
         <div class="chips">
           {% for tag in material.feature_tags.all %}

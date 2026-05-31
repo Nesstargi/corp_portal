@@ -47,6 +47,7 @@ class LearningMaterialAdminForm(forms.ModelForm):
         model = LearningMaterial
         fields = "__all__"
         widgets = {
+            "summary": RichTextToolbarWidget(attrs={"rows": 5}),
             "content": RichTextToolbarWidget(),
             "product_full_description": RichTextToolbarWidget(),
             "product_text_review": RichTextToolbarWidget(),

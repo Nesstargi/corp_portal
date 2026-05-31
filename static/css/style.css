@@ -1186,6 +1186,15 @@ h3 {
     margin-top: 12px;
 }
 
+.rich-copy--summary,
+.rich-copy--summary p,
+.rich-copy--summary li,
+.rich-copy--summary span,
+.rich-copy--summary strong,
+.rich-copy--summary em {
+    font-size: 18px !important;
+}
+
 .rich-copy img {
     display: block;
     max-width: min(100%, 620px) !important;

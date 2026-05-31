@@ -46,6 +46,15 @@ class LearningProductBlockModeTests(TestCase):
         self.assertEqual(form.fields["title"].label, "Заголовок секции")
         self.assertIn("удобный редактор", form.fields["items_data"].help_text)
 
+    def test_material_summary_uses_rich_text_editor_with_italic_control(self):
+        form = LearningMaterialAdminForm()
+        rendered = str(form["summary"])
+
+        self.assertIn("data-rich-text-widget", rendered)
+        self.assertIn('data-command="bold"', rendered)
+        self.assertIn('data-command="italic"', rendered)
+        self.assertIn('data-command="insertUnorderedList"', rendered)
+
     def test_specification_form_resolves_characteristic_name_from_catalog(self):
         material = LearningMaterial.objects.create(
             title="Тестовый товар",
@@ -108,6 +117,21 @@ class LearningProductBlockModeTests(TestCase):
             response,
             "Этот старый структурный текст должен сохраниться рядом с новыми блоками.",
         )
+
+    def test_product_detail_renders_summary_formatting(self):
+        material = LearningMaterial.objects.create(
+            title="Карточка с оформленным описанием",
+            summary="<p><strong>Главное</strong>: <em>коротко</em>.</p><ul><li>Первый тезис</li></ul>",
+            material_type="instruction",
+            is_published=True,
+        )
+
+        response = self.client.get(reverse("learning_detail", args=[material.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<strong>Главное</strong>", html=True)
+        self.assertContains(response, "<em>коротко</em>", html=True)
+        self.assertContains(response, "<li>Первый тезис</li>", html=True)
 
     def test_product_detail_renders_specialized_block_types(self):
         material = LearningMaterial.objects.create(
