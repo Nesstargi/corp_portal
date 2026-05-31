@@ -1,0 +1,73 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  <div id="content-main">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="send_selected_to_telegram_groups" />
+      <input type="hidden" name="select_across" value="0" />
+      {% for material in materials %}
+        <input type="hidden" name="{{ action_checkbox_name }}" value="{{ material.pk }}" />
+      {% endfor %}
+
+      <fieldset class="module aligned">
+        <h2>Выберите Telegram-группы</h2>
+        <div class="description">
+          Сообщение получат только отмеченные группы. В списке показаны активные группы, в которых бот подключён командой /start.
+        </div>
+
+        {% if error_message %}
+          <p class="errornote">{{ error_message }}</p>
+        {% endif %}
+
+        {% if available_group_chats %}
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Отправить</th>
+                <th scope="col">Telegram-группа</th>
+                <th scope="col">Chat ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for group_chat in available_group_chats %}
+                <tr>
+                  <td>
+                    <input
+                      type="checkbox"
+                      name="telegram_group_chats"
+                      value="{{ group_chat.pk }}"
+                      {% if group_chat.pk|stringformat:"s" in selected_group_ids %}checked{% endif %}
+                    />
+                  </td>
+                  <td>{{ group_chat.display_name }}</td>
+                  <td>{{ group_chat.chat_id }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="errornote">
+            Доступных Telegram-групп пока нет. Добавьте бота в группу и отправьте в ней команду /start.
+          </p>
+        {% endif %}
+      </fieldset>
+
+      <fieldset class="module">
+        <h2>Выбранные материалы</h2>
+        <ul>
+          {% for material in materials %}
+            <li>{{ material.title }}</li>
+          {% endfor %}
+        </ul>
+      </fieldset>
+
+      <div class="submit-row">
+        {% if available_group_chats %}
+          <input type="submit" name="send_to_groups_confirm" value="Отправить в выбранные группы" class="default" />
+        {% endif %}
+        <a href="{{ changelist_url }}" class="closelink">Отмена</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

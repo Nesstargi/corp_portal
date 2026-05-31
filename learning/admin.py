@@ -1,10 +1,12 @@
 from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin import helpers
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.forms.models import BaseInlineFormSet
 from django.forms.widgets import ClearableFileInput
+from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.html import format_html_join
@@ -19,7 +21,13 @@ from catalog.admin_mixins import (
 )
 from catalog.models import ProductCategoryCharacteristic, ProductCharacteristic
 from catalog.widgets import RichTextToolbarWidget
-from telegram_bot.services import send_learning_notification, telegram_enabled
+from telegram_bot.models import TelegramSubscriber
+from telegram_bot.services import (
+    send_learning_notification,
+    send_learning_notification_to_group_chats,
+    send_learning_notification_to_private_subscribers,
+    telegram_enabled,
+)
 
 from .models import (
     LearningBlock,
@@ -488,6 +496,7 @@ class LearningMaterialAdmin(
         "unpublish_selected",
         "duplicate_selected",
         "send_selected_to_telegram",
+        "send_selected_to_telegram_groups",
     )
     inlines = [LearningBlockInline]
     fieldsets = (
@@ -610,7 +619,7 @@ class LearningMaterialAdmin(
 
         self.message_user(request, f"Создано копий материалов: {duplicated}.", level=messages.SUCCESS)
 
-    @admin.action(description="Отправить выбранные материалы в Telegram")
+    @admin.action(description="Отправить выбранные материалы в личные сообщения Telegram")
     def send_selected_to_telegram(self, request, queryset):
         if not telegram_enabled():
             self.message_user(
@@ -628,15 +637,83 @@ class LearningMaterialAdmin(
             if not material.is_published:
                 skipped += 1
                 continue
-            report = send_learning_notification(material)
+            report = send_learning_notification_to_private_subscribers(material)
             total_sent += report.sent
             total_failed += report.failed
 
         self.message_user(
             request,
-            "Рассылка материалов завершена. "
+            "Рассылка материалов в личные сообщения завершена. "
             f"Успешно: {total_sent}, не удалось: {total_failed}, пропущено неопубликованных: {skipped}.",
             level=messages.SUCCESS if total_sent else messages.WARNING,
+        )
+
+    @admin.action(description="Отправить выбранные материалы в Telegram-группы")
+    def send_selected_to_telegram_groups(self, request, queryset):
+        if not telegram_enabled():
+            self.message_user(
+                request,
+                "Токен Telegram-бота не настроен.",
+                level=messages.ERROR,
+            )
+            return
+
+        available_group_chats = TelegramSubscriber.objects.filter(
+            is_active=True,
+            is_blocked=False,
+            chat_type__in=(
+                TelegramSubscriber.CHAT_TYPE_GROUP,
+                TelegramSubscriber.CHAT_TYPE_SUPERGROUP,
+            ),
+        ).order_by("chat_title", "chat_id")
+        selected_group_ids = request.POST.getlist("telegram_group_chats")
+        error_message = ""
+
+        if "send_to_groups_confirm" in request.POST:
+            selected_group_chats = available_group_chats.filter(pk__in=selected_group_ids)
+
+            if not selected_group_chats.exists():
+                error_message = "Выбери хотя бы одну доступную Telegram-группу."
+            else:
+                total_sent = 0
+                total_failed = 0
+                skipped = 0
+
+                for material in queryset:
+                    if not material.is_published:
+                        skipped += 1
+                        continue
+                    report = send_learning_notification_to_group_chats(
+                        material,
+                        selected_group_chats,
+                    )
+                    total_sent += report.sent
+                    total_failed += report.failed
+
+                self.message_user(
+                    request,
+                    "Рассылка материалов в Telegram-группы завершена. "
+                    f"Успешно: {total_sent}, не удалось: {total_failed}, "
+                    f"пропущено неопубликованных: {skipped}.",
+                    level=messages.SUCCESS if total_sent else messages.WARNING,
+                )
+                return
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Отправка материалов в Telegram-группы",
+            "opts": self.model._meta,
+            "materials": queryset,
+            "available_group_chats": available_group_chats,
+            "selected_group_ids": selected_group_ids,
+            "action_checkbox_name": helpers.ACTION_CHECKBOX_NAME,
+            "changelist_url": reverse("admin:learning_learningmaterial_changelist"),
+            "error_message": error_message,
+        }
+        return TemplateResponse(
+            request,
+            "admin/learning/learningmaterial/send_to_groups.html",
+            context,
         )
 
     @staticmethod

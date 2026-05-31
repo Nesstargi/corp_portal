@@ -348,6 +348,20 @@ def send_learning_notification(material):
     return send_payload_to_subscribers(build_learning_payload(material), subscribers=subscribers)
 
 
+def send_learning_notification_to_private_subscribers(material):
+    return send_payload_to_subscribers(
+        build_learning_payload(material),
+        subscribers=_active_private_subscribers_queryset(),
+    )
+
+
+def send_learning_notification_to_group_chats(material, group_chats):
+    return send_payload_to_subscribers(
+        build_learning_payload(material),
+        subscribers=get_target_group_chats(target_group_chats=group_chats),
+    )
+
+
 def send_broadcast_notification(broadcast):
     subscribers = get_target_recipients(
         broadcast.target_mode,
