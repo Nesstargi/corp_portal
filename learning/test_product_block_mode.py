@@ -225,6 +225,86 @@ class LearningProductBlockModeTests(TestCase):
         self.assertEqual(block.items_data["rows"][0]["parameter"], "Мощность всасывания")
         self.assertEqual(block.items_data["rows"][0]["values"], ["7 000 Па", "16 000 Па"])
 
+    def test_manual_table_block_form_keeps_headers_and_rows(self):
+        material = LearningMaterial.objects.create(
+            title="Условия подписки",
+            summary="Материал с самостоятельной таблицей.",
+            material_type="instruction",
+            is_published=True,
+        )
+        form = LearningBlockAdminForm(
+            data={
+                "material": str(material.pk),
+                "sort_order": "10",
+                "block_type": "table",
+                "title": "Проценты по срокам",
+                "caption": "",
+                "text": "",
+                "video_url": "",
+                "items_data": json.dumps(
+                    {
+                        "headers": ["Срок подписки", "Расчёт ежемесячного платежа"],
+                        "rows": [
+                            {
+                                "left": "3 месяца",
+                                "right": "розничная цена × 6,8%",
+                            },
+                            {
+                                "left": "6 месяцев",
+                                "right": "розничная цена × 5,2%",
+                            },
+                        ],
+                    }
+                ),
+            },
+            instance=LearningBlock(material=material),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        block = form.save(commit=False)
+        self.assertEqual(
+            block.items_data["headers"],
+            ["Срок подписки", "Расчёт ежемесячного платежа"],
+        )
+        self.assertEqual(block.items_data["rows"][0]["left"], "3 месяца")
+        self.assertEqual(block.items_data["rows"][1]["right"], "розничная цена × 5,2%")
+
+    def test_manual_table_block_renders_on_detail_page(self):
+        material = LearningMaterial.objects.create(
+            title="Формула подписки",
+            summary="Расчёт платежа по срокам.",
+            material_type="instruction",
+            is_published=True,
+        )
+        LearningBlock.objects.create(
+            material=material,
+            sort_order=10,
+            block_type="table",
+            title="Проценты по срокам",
+            items_data={
+                "headers": ["Срок подписки", "Расчёт ежемесячного платежа"],
+                "rows": [
+                    {
+                        "left": "3 месяца",
+                        "right": "розничная цена × 6,8%",
+                    },
+                    {
+                        "left": "12 месяцев",
+                        "right": "розничная цена × 4,3%",
+                    },
+                ],
+            },
+        )
+
+        response = self.client.get(reverse("learning_detail", args=[material.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Проценты по срокам")
+        self.assertContains(response, "Срок подписки")
+        self.assertContains(response, "Расчёт ежемесячного платежа")
+        self.assertContains(response, "3 месяца")
+        self.assertContains(response, "розничная цена × 6,8%")
+
     def test_comparison_table_block_renders_on_detail_page(self):
         material = LearningMaterial.objects.create(
             title="Dreame G10: сравнение моделей",

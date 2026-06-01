@@ -167,7 +167,7 @@ class LearningBlockAdminForm(forms.ModelForm):
         )
         self.fields["items_data"].required = False
         self.fields["items_data"].help_text = (
-            "Для фишек, скриптов продаж и характеристик ниже появится удобный редактор."
+            "Для фишек, скриптов продаж, характеристик и таблиц ниже появится удобный редактор."
         )
         self.fields["video_url"].help_text = "Вставь ссылку на видеообзор или ролик."
         self.fields["document"].help_text = "Прикрепи PDF, инструкцию, прайс или другой файл."
@@ -175,6 +175,32 @@ class LearningBlockAdminForm(forms.ModelForm):
     def clean_items_data(self):
         items_data = self.cleaned_data.get("items_data") or []
         block_type = self.cleaned_data.get("block_type") or self.instance.block_type
+
+        if block_type == "table":
+            if not isinstance(items_data, dict):
+                return {"headers": [], "rows": []}
+
+            raw_headers = items_data.get("headers") or []
+            if not isinstance(raw_headers, list):
+                raw_headers = []
+            headers = [
+                str(raw_headers[index] or "").strip()
+                if index < len(raw_headers)
+                else ""
+                for index in range(2)
+            ]
+            rows = []
+
+            for row in items_data.get("rows", []):
+                if not isinstance(row, dict):
+                    continue
+
+                left = str(row.get("left") or "").strip()
+                right = str(row.get("right") or "").strip()
+                if left or right:
+                    rows.append({"left": left, "right": right})
+
+            return {"headers": headers, "rows": rows}
 
         if block_type == "comparison_table":
             if not isinstance(items_data, dict):
@@ -339,7 +365,7 @@ class LearningBlockInline(admin.StackedInline):
                 ),
                 "description": (
                     "Выбери тип блока и заполни только нужные поля. "
-                    "Для фишек, скриптов продаж и характеристик ниже появится отдельный удобный редактор."
+                    "Для фишек, скриптов продаж, характеристик и таблиц ниже появится отдельный удобный редактор."
                 ),
             },
         ),

@@ -1487,6 +1487,37 @@ h3 {
     background: #fbfaf7;
 }
 
+.manual-block-table-wrap {
+    border: 1px solid var(--color-line);
+    border-radius: 8px;
+    background: var(--color-surface);
+}
+
+.manual-block-table {
+    border: 0;
+}
+
+.manual-block-table thead th {
+    width: auto;
+    background: #f7f7f7;
+    color: var(--color-ink);
+}
+
+.manual-block-table tbody th {
+    width: 42%;
+    background: #fff;
+    font-weight: 400;
+}
+
+.manual-block-table tbody td {
+    text-align: right;
+}
+
+.manual-block-table tbody tr:nth-child(even) th,
+.manual-block-table tbody tr:nth-child(even) td {
+    background: #fbfaf7;
+}
+
 .article-note {
     padding-bottom: 20px;
     border-bottom: 1px solid var(--color-line);

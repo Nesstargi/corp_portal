@@ -149,6 +149,37 @@
           </div>
         {% endif %}
       {% endwith %}
+    {% elif block.block_type == "table" %}
+      {% if block.title %}
+        <h3>{{ block.title }}</h3>
+      {% endif %}
+      {% with table=block.manual_table %}
+        {% if table.rows %}
+          <div class="spec-table-wrap manual-block-table-wrap">
+            <table class="spec-table manual-block-table">
+              {% if table.headers.0 or table.headers.1 %}
+                <thead>
+                  <tr>
+                    <th>{{ table.headers.0 }}</th>
+                    <th>{{ table.headers.1 }}</th>
+                  </tr>
+                </thead>
+              {% endif %}
+              <tbody>
+                {% for row in table.rows %}
+                  <tr>
+                    <th>{{ row.left }}</th>
+                    <td>{{ row.right }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% if block.caption %}
+            <p class="meta">{{ block.caption }}</p>
+          {% endif %}
+        {% endif %}
+      {% endwith %}
     {% elif block.block_type == "comparison_table" %}
       {% if block.title %}
         <h3>{{ block.title }}</h3>

@@ -184,6 +184,62 @@
     text-decoration: underline;
 }
 
+.learning-manual-table-editor {
+    display: grid;
+    gap: 16px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 18px;
+    border: 1px solid #cfdce7;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #f8fbfd 0%, #eef4f8 100%);
+}
+
+.learning-manual-table-editor__table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #ccd9e4;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.learning-manual-table-editor__table {
+    width: 100%;
+    min-width: 680px;
+    border: 0;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.learning-manual-table-editor__table th {
+    padding: 10px 12px;
+    background: #386f86;
+}
+
+.learning-manual-table-editor__table td {
+    padding: 10px 12px;
+    border-top: 1px solid #edf1f4;
+    background: #fff;
+}
+
+.learning-manual-table-editor__table tbody tr:nth-child(even) td {
+    background: #f8fafc;
+}
+
+.learning-manual-table-editor__table input {
+    width: 100% !important;
+    max-width: none !important;
+    box-sizing: border-box;
+}
+
+.learning-manual-table-editor__heading--delete,
+.learning-manual-table-editor__cell--delete {
+    width: 54px;
+    padding-right: 8px !important;
+    padding-left: 8px !important;
+    text-align: center;
+}
+
 .learning-compare-editor {
     display: grid;
     gap: 16px;

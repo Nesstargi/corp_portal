@@ -17,6 +17,7 @@
     feature: ["items_data"],
     sales_script: ["items_data"],
     specification: ["items_data"],
+    table: ["items_data"],
     comparison_table: ["items_data"],
     file: ["document", "caption"],
   };
@@ -62,6 +63,12 @@
       titleHelp: "Например: Характеристики или Ключевые параметры.",
       captionLabel: "Короткая подпись",
       captionHelp: "Для этого типа обычно не нужна. Характеристики заполняются ниже парами.",
+    },
+    table: {
+      titleLabel: "Заголовок таблицы",
+      titleHelp: "Например: Проценты по срокам или Условия подписки.",
+      captionLabel: "Короткая подпись",
+      captionHelp: "Необязательно. Можно пояснить таблицу одной строкой.",
     },
     comparison_table: {
       titleLabel: "Заголовок таблицы",
@@ -407,6 +414,54 @@
     }
   }
 
+  function parseManualTable(input) {
+    var fallback = {
+      headers: ["Колонка 1", "Колонка 2"],
+      rows: [
+        {
+          left: "",
+          right: "",
+        },
+      ],
+    };
+
+    if (!input || !input.value) {
+      return fallback;
+    }
+
+    try {
+      var parsed = JSON.parse(input.value);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return fallback;
+      }
+
+      var rawHeaders = Array.isArray(parsed.headers) ? parsed.headers : [];
+      var headers = [0, 1].map(function (index) {
+        return String(rawHeaders[index] || fallback.headers[index]).trim();
+      });
+      var rows = Array.isArray(parsed.rows)
+        ? parsed.rows.map(function (row) {
+            row = row && typeof row === "object" ? row : {};
+            return {
+              left: String(row.left || "").trim(),
+              right: String(row.right || "").trim(),
+            };
+          })
+        : [];
+
+      if (!rows.length) {
+        rows = fallback.rows.slice();
+      }
+
+      return {
+        headers: headers,
+        rows: rows,
+      };
+    } catch (error) {
+      return fallback;
+    }
+  }
+
   function writeItems(input, items) {
     if (!input) {
       return;
@@ -419,6 +474,13 @@
       return;
     }
     input.value = JSON.stringify(table || { models: [], rows: [] });
+  }
+
+  function writeManualTable(input, table) {
+    if (!input) {
+      return;
+    }
+    input.value = JSON.stringify(table || { headers: [], rows: [] });
   }
 
   function isItemFilled(item) {
@@ -765,6 +827,138 @@
     );
   }
 
+  function renderManualTableEditor(row) {
+    var input = getStructuredItemsInput(row);
+    var editor = row.querySelector("[data-block-items-editor]");
+    if (!input || !editor) {
+      return;
+    }
+
+    var table = parseManualTable(input);
+    writeManualTable(input, table);
+
+    var renderKey = "table::" + JSON.stringify(table);
+    if (editor.dataset.renderKey === renderKey) {
+      return;
+    }
+
+    var rows = table.rows
+      .map(function (tableRow, rowIndex) {
+        return (
+          '<tr class="learning-manual-table-editor__row" data-manual-table-row="' +
+          rowIndex +
+          '">' +
+          '<td class="learning-manual-table-editor__cell">' +
+          '<input type="text" value="' +
+          escapeHtml(tableRow.left) +
+          '" placeholder="Например: 3 месяца" data-manual-table-cell="' +
+          rowIndex +
+          ':left">' +
+          "</td>" +
+          '<td class="learning-manual-table-editor__cell">' +
+          '<input type="text" value="' +
+          escapeHtml(tableRow.right) +
+          '" placeholder="Например: розничная цена × 6,8%" data-manual-table-cell="' +
+          rowIndex +
+          ':right">' +
+          "</td>" +
+          '<td class="learning-manual-table-editor__cell learning-manual-table-editor__cell--delete">' +
+          '<button type="button" class="learning-compare-editor__icon-button learning-compare-editor__icon-button--danger" title="Удалить строку" aria-label="Удалить строку" data-remove-manual-table-row="' +
+          rowIndex +
+          '">×</button>' +
+          "</td>" +
+          "</tr>"
+        );
+      })
+      .join("");
+
+    editor.innerHTML =
+      '<div class="learning-manual-table-editor">' +
+      '<div class="learning-compare-editor__head">' +
+      "<div>" +
+      '<div class="learning-compare-editor__title">Таблица</div>' +
+      '<p class="learning-compare-editor__help">Задай названия двух колонок и внеси строки вручную. Подходит для сроков, тарифов, формул и условий.</p>' +
+      "</div>" +
+      '<div class="learning-compare-editor__count">' +
+      table.rows.length +
+      " строк" +
+      "</div>" +
+      "</div>" +
+      '<div class="learning-manual-table-editor__table-wrap">' +
+      '<table class="learning-manual-table-editor__table">' +
+      "<thead><tr>" +
+      '<th><input type="text" value="' +
+      escapeHtml(table.headers[0]) +
+      '" placeholder="Название первой колонки" data-manual-table-header="0"></th>' +
+      '<th><input type="text" value="' +
+      escapeHtml(table.headers[1]) +
+      '" placeholder="Название второй колонки" data-manual-table-header="1"></th>' +
+      '<th class="learning-manual-table-editor__heading--delete"><span class="learning-compare-editor__sr">Действие</span></th>' +
+      "</tr></thead>" +
+      "<tbody>" +
+      rows +
+      "</tbody></table></div>" +
+      '<button type="button" class="learning-compare-editor__add-row" data-add-manual-table-row="true"><span>+</span>Добавить строку</button>' +
+      "</div>";
+    editor.dataset.renderKey = renderKey;
+  }
+
+  function collectManualTableFromEditor(row) {
+    var input = getStructuredItemsInput(row);
+    var editor = row.querySelector("[data-block-items-editor]");
+    if (!input || !editor) {
+      return;
+    }
+
+    var headers = [0, 1].map(function (index) {
+      var field = editor.querySelector('[data-manual-table-header="' + index + '"]');
+      return field ? String(field.value || "").trim() : "";
+    });
+    var rows = [];
+
+    editor.querySelectorAll("[data-manual-table-row]").forEach(function (rowElement) {
+      var rowIndex = Number(rowElement.dataset.manualTableRow || 0);
+      var leftField = rowElement.querySelector('[data-manual-table-cell="' + rowIndex + ':left"]');
+      var rightField = rowElement.querySelector('[data-manual-table-cell="' + rowIndex + ':right"]');
+      var left = leftField ? String(leftField.value || "").trim() : "";
+      var right = rightField ? String(rightField.value || "").trim() : "";
+
+      if (left || right) {
+        rows.push({ left: left, right: right });
+      }
+    });
+
+    if (!rows.length) {
+      rows = [{ left: "", right: "" }];
+    }
+
+    writeManualTable(input, {
+      headers: headers,
+      rows: rows,
+    });
+  }
+
+  function addManualTableRow(row) {
+    var input = getStructuredItemsInput(row);
+    var table = parseManualTable(input);
+    table.rows.push({ left: "", right: "" });
+    writeManualTable(input, table);
+    renderManualTableEditor(row);
+  }
+
+  function removeManualTableRow(row, rowIndex) {
+    var input = getStructuredItemsInput(row);
+    var table = parseManualTable(input);
+    table.rows = table.rows.filter(function (_tableRow, index) {
+      return index !== rowIndex;
+    });
+    if (!table.rows.length) {
+      table.rows.push({ left: "", right: "" });
+    }
+    writeManualTable(input, table);
+    renderManualTableEditor(row);
+  }
+
   function renderComparisonTableEditor(row) {
     var input = getStructuredItemsInput(row);
     var editor = row.querySelector("[data-block-items-editor]");
@@ -1038,6 +1232,11 @@
     }
 
     var blockType = getBlockType(row);
+    if (blockType === "table") {
+      renderManualTableEditor(row);
+      return;
+    }
+
     if (blockType === "comparison_table") {
       renderComparisonTableEditor(row);
       return;
@@ -1349,6 +1548,14 @@
       event.target.matches("[data-comparison-model-name], [data-comparison-parameter], [data-comparison-cell]")
     ) {
       collectComparisonTableFromEditor(event.target.closest(".inline-related"));
+      return;
+    }
+
+    if (
+      event.target &&
+      event.target.matches("[data-manual-table-header], [data-manual-table-cell]")
+    ) {
+      collectManualTableFromEditor(event.target.closest(".inline-related"));
     }
   });
 
@@ -1363,10 +1570,33 @@
       event.target.matches("[data-comparison-model-name], [data-comparison-parameter], [data-comparison-cell]")
     ) {
       collectComparisonTableFromEditor(event.target.closest(".inline-related"));
+      return;
+    }
+
+    if (
+      event.target &&
+      event.target.matches("[data-manual-table-header], [data-manual-table-cell]")
+    ) {
+      collectManualTableFromEditor(event.target.closest(".inline-related"));
     }
   });
 
   document.addEventListener("click", function (event) {
+    if (event.target && event.target.matches("[data-add-manual-table-row]")) {
+      event.preventDefault();
+      addManualTableRow(event.target.closest(".inline-related"));
+      return;
+    }
+
+    if (event.target && event.target.matches("[data-remove-manual-table-row]")) {
+      event.preventDefault();
+      removeManualTableRow(
+        event.target.closest(".inline-related"),
+        Number(event.target.dataset.removeManualTableRow)
+      );
+      return;
+    }
+
     if (event.target && event.target.matches("[data-add-comparison-model]")) {
       event.preventDefault();
       addComparisonModel(event.target.closest(".inline-related"));

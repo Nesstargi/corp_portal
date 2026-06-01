@@ -304,6 +304,7 @@ class LearningBlock(models.Model):
         ("feature", "Фишка"),
         ("sales_script", "Скрипт продаж"),
         ("specification", "Характеристика"),
+        ("table", "Таблица"),
         ("comparison_table", "Сравнительная таблица"),
         ("file", "Файл"),
     ]
@@ -406,6 +407,33 @@ class LearningBlock(models.Model):
                 )
 
         return {"models": models, "rows": rows}
+
+    @property
+    def manual_table(self):
+        if not isinstance(self.items_data, dict):
+            return {"headers": [], "rows": []}
+
+        raw_headers = self.items_data.get("headers") or []
+        if not isinstance(raw_headers, list):
+            raw_headers = []
+        headers = [
+            str(raw_headers[index] or "").strip()
+            if index < len(raw_headers)
+            else ""
+            for index in range(2)
+        ]
+        rows = []
+
+        for row in self.items_data.get("rows") or []:
+            if not isinstance(row, dict):
+                continue
+
+            left = str(row.get("left") or "").strip()
+            right = str(row.get("right") or "").strip()
+            if left or right:
+                rows.append({"left": left, "right": right})
+
+        return {"headers": headers, "rows": rows}
 
     @property
     def gallery_items(self):
