@@ -608,6 +608,114 @@
     });
   }
 
+  function getLearningAdminScrollOffset() {
+    var header = document.getElementById("header");
+    var breadcrumbs = document.querySelector(".breadcrumbs");
+    var offset = 18;
+
+    [header, breadcrumbs].forEach(function (element) {
+      if (!element) {
+        return;
+      }
+
+      var style = window.getComputedStyle(element);
+      if (style.position === "fixed" || style.position === "sticky") {
+        offset += element.getBoundingClientRect().height;
+      }
+    });
+
+    return offset;
+  }
+
+  function scrollToLearningAdminSection(section, updateHash) {
+    if (!section) {
+      return;
+    }
+
+    var top = section.getBoundingClientRect().top + window.pageYOffset - getLearningAdminScrollOffset();
+    window.scrollTo({
+      top: Math.max(0, top),
+      behavior: "smooth"
+    });
+
+    if (updateHash && window.history && window.history.replaceState) {
+      window.history.replaceState(null, "", "#" + section.id);
+    }
+  }
+
+  function setupLearningAdminNavigation() {
+    var nav = document.querySelector(".learning-admin-nav");
+    if (!nav || nav.dataset.navigationBound === "true") {
+      return;
+    }
+
+    var anchors = Array.from(nav.querySelectorAll('.learning-admin-anchor[href^="#"]'));
+    if (!anchors.length) {
+      return;
+    }
+
+    var sections = anchors
+      .map(function (anchor) {
+        return document.querySelector(anchor.getAttribute("href"));
+      })
+      .filter(Boolean);
+
+    function setActive(anchor) {
+      anchors.forEach(function (item) {
+        item.classList.toggle("is-active", item === anchor);
+      });
+    }
+
+    function updateActiveFromScroll() {
+      var offset = getLearningAdminScrollOffset() + 24;
+      var current = sections[0] || null;
+
+      sections.forEach(function (section) {
+        if (section.getBoundingClientRect().top <= offset) {
+          current = section;
+        }
+      });
+
+      if (!current) {
+        return;
+      }
+
+      var activeAnchor = anchors.find(function (anchor) {
+        return anchor.getAttribute("href") === "#" + current.id;
+      });
+      if (activeAnchor) {
+        setActive(activeAnchor);
+      }
+    }
+
+    anchors.forEach(function (anchor) {
+      anchor.addEventListener("click", function (event) {
+        var target = document.querySelector(anchor.getAttribute("href"));
+        if (!target) {
+          return;
+        }
+
+        event.preventDefault();
+        setActive(anchor);
+        scrollToLearningAdminSection(target, true);
+      });
+    });
+
+    window.addEventListener("scroll", updateActiveFromScroll, { passive: true });
+    window.addEventListener("resize", updateActiveFromScroll);
+    nav.dataset.navigationBound = "true";
+
+    if (window.location.hash && window.location.hash.indexOf("#learning-section-") === 0) {
+      var initialSection = document.querySelector(window.location.hash);
+      window.setTimeout(function () {
+        scrollToLearningAdminSection(initialSection, false);
+        updateActiveFromScroll();
+      }, 80);
+    } else {
+      updateActiveFromScroll();
+    }
+  }
+
   function toggleTelegramAudienceFields() {
     var sendNow = document.getElementById("id_send_telegram_notification");
     var audience = document.getElementById("id_telegram_audience");
@@ -688,6 +796,7 @@
     toggleTelegramAudienceFields();
     toggleBroadcastTargetGroups();
     togglePromotionBenefitField();
+    setupLearningAdminNavigation();
     updateCardPreview();
     decorateTypeBadges();
 

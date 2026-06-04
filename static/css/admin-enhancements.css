@@ -240,6 +240,10 @@
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.04);
 }
 
+.learning-admin-section {
+    scroll-margin-top: 118px;
+}
+
 .learning-admin-nav__title {
     font-weight: 800;
     margin-bottom: 12px;
@@ -257,6 +261,12 @@
 .learning-admin-anchor:hover {
     background: #eef5f8;
     color: #1f4f66;
+}
+
+.learning-admin-anchor.is-active {
+    background: #e8f2f7;
+    color: #1f4f66;
+    box-shadow: inset 3px 0 0 #417690;
 }
 
 .learning-admin-content {

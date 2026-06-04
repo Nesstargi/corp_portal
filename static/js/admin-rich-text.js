@@ -1,4 +1,14 @@
 (function () {
+  var FONT_SIZE_MAP = {
+    "1": "0.78rem",
+    "2": "0.9rem",
+    "3": "1rem",
+    "4": "1.15rem",
+    "5": "1.25rem",
+    "6": "1.35rem",
+    "7": "1.35rem"
+  };
+
   var blockFieldMap = {
     text: ["sort_order", "block_type", "title", "text"],
     image: ["sort_order", "block_type", "title", "gallery_uploads", "gallery_preview", "caption"],
@@ -75,6 +85,62 @@
     });
   }
 
+  function moveChildren(source, target) {
+    while (source.firstChild) {
+      target.appendChild(source.firstChild);
+    }
+  }
+
+  function normalizeFontTags(root) {
+    if (!root) {
+      return;
+    }
+
+    root.querySelectorAll("font").forEach(function (font) {
+      var span = document.createElement("span");
+      var color = font.getAttribute("color");
+      var face = font.getAttribute("face");
+      var size = font.getAttribute("size");
+      var style = font.getAttribute("style");
+
+      if (style) {
+        span.setAttribute("style", style);
+      }
+      if (color) {
+        span.style.color = color;
+      }
+      if (face) {
+        span.style.fontFamily = face;
+      }
+      if (size && FONT_SIZE_MAP[String(size)]) {
+        span.style.fontSize = FONT_SIZE_MAP[String(size)];
+      }
+
+      moveChildren(font, span);
+      font.replaceWith(span);
+    });
+  }
+
+  function normalizeLinks(root) {
+    if (!root) {
+      return;
+    }
+
+    root.querySelectorAll("a[href]").forEach(function (link) {
+      var href = String(link.getAttribute("href") || "");
+      if (/^https?:\/\//i.test(href)) {
+        link.setAttribute("target", "_blank");
+        link.setAttribute("rel", "noopener noreferrer");
+      }
+    });
+  }
+
+  function normalizeEditor(root) {
+    normalizeLists(root);
+    normalizeFontTags(root);
+    normalizeLinks(root);
+  }
+
   function syncToTextarea(widget) {
     var editor = widget.querySelector("[data-editor-surface]");
     var textarea = widget.querySelector(".rt-editor-source");
@@ -83,7 +149,7 @@
       return;
     }
 
-    normalizeLists(editor);
+    normalizeEditor(editor);
     textarea.value = editor.innerHTML.trim();
   }
 
@@ -168,41 +234,162 @@
     var textarea = widget.querySelector(".rt-editor-source");
     var buttons = widget.querySelectorAll("[data-command]");
     var colorInputs = widget.querySelectorAll("[data-color-command]");
+    var formatSelect = widget.querySelector("[data-format-block]");
+    var fontSizeSelect = widget.querySelector("[data-font-size]");
+    var linkButtons = widget.querySelectorAll("[data-link-command]");
 
     if (!editor || !textarea) {
       return;
     }
 
     editor.innerHTML = textarea.value || "";
-    normalizeLists(editor);
+    normalizeEditor(editor);
+
+    function nodeBelongsToEditor(node) {
+      if (!node) {
+        return false;
+      }
+      var element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+      return Boolean(element && (element === editor || editor.contains(element)));
+    }
+
+    function saveSelection() {
+      var selection = window.getSelection ? window.getSelection() : null;
+      if (!selection || !selection.rangeCount) {
+        return;
+      }
+
+      var range = selection.getRangeAt(0);
+      if (!nodeBelongsToEditor(range.commonAncestorContainer)) {
+        return;
+      }
+
+      widget._savedRange = range.cloneRange();
+    }
+
+    function restoreSelection() {
+      var selection = window.getSelection ? window.getSelection() : null;
+      if (!selection || !widget._savedRange) {
+        editor.focus();
+        return;
+      }
+
+      selection.removeAllRanges();
+      selection.addRange(widget._savedRange);
+      editor.focus();
+    }
+
+    function runCommand(command, value) {
+      restoreSelection();
+      document.execCommand(command, false, value || null);
+      normalizeEditor(editor);
+      saveSelection();
+      syncToTextarea(widget);
+    }
+
+    function applyFormatBlock(value) {
+      if (!value) {
+        return;
+      }
+      runCommand("formatBlock", value);
+    }
+
+    function applyFontSize(value) {
+      if (!value) {
+        return;
+      }
+
+      restoreSelection();
+      document.execCommand("fontSize", false, "7");
+      editor.querySelectorAll('font[size="7"]').forEach(function (font) {
+        var span = document.createElement("span");
+        span.style.fontSize = value;
+        moveChildren(font, span);
+        font.replaceWith(span);
+      });
+      normalizeEditor(editor);
+      saveSelection();
+      syncToTextarea(widget);
+    }
+
+    function normalizeUrl(value) {
+      var url = String(value || "").trim();
+      if (!url) {
+        return "";
+      }
+      if (/^(https?:|mailto:|tel:|#|\/)/i.test(url)) {
+        return url;
+      }
+      return "https://" + url;
+    }
+
+    function applyLinkCommand(mode) {
+      if (mode === "remove") {
+        runCommand("unlink");
+        return;
+      }
+
+      var url = normalizeUrl(window.prompt("Введите ссылку", "https://"));
+      if (!url) {
+        return;
+      }
+
+      runCommand("createLink", url);
+    }
 
     editor.addEventListener("input", function () {
+      saveSelection();
       syncToTextarea(widget);
+    });
+
+    ["keyup", "mouseup", "focus", "blur"].forEach(function (eventName) {
+      editor.addEventListener(eventName, saveSelection);
     });
 
     buttons.forEach(function (button) {
       button.addEventListener("mousedown", function (event) {
         event.preventDefault();
+        saveSelection();
       });
 
       button.addEventListener("click", function () {
-        editor.focus();
-        document.execCommand(button.dataset.command, false, null);
-        normalizeLists(editor);
-        syncToTextarea(widget);
+        runCommand(button.dataset.command);
       });
     });
 
     colorInputs.forEach(function (input) {
       input.addEventListener("mousedown", function (event) {
-        event.preventDefault();
+        saveSelection();
       });
 
       input.addEventListener("input", function () {
-        editor.focus();
-        document.execCommand(input.dataset.colorCommand, false, input.value);
-        normalizeLists(editor);
-        syncToTextarea(widget);
+        runCommand(input.dataset.colorCommand, input.value);
+      });
+    });
+
+    if (formatSelect) {
+      formatSelect.addEventListener("mousedown", saveSelection);
+      formatSelect.addEventListener("change", function () {
+        applyFormatBlock(formatSelect.value);
+      });
+    }
+
+    if (fontSizeSelect) {
+      fontSizeSelect.addEventListener("mousedown", saveSelection);
+      fontSizeSelect.addEventListener("change", function () {
+        applyFontSize(fontSizeSelect.value);
+        fontSizeSelect.value = "";
+      });
+    }
+
+    linkButtons.forEach(function (button) {
+      button.addEventListener("mousedown", function (event) {
+        event.preventDefault();
+        saveSelection();
+      });
+
+      button.addEventListener("click", function () {
+        applyLinkCommand(button.dataset.linkCommand);
       });
     });
 

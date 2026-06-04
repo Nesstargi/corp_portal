@@ -53,9 +53,13 @@ class LearningProductBlockModeTests(TestCase):
         rendered = str(form["summary"])
 
         self.assertIn("data-rich-text-widget", rendered)
+        self.assertIn("data-format-block", rendered)
+        self.assertIn("data-font-size", rendered)
         self.assertIn('data-command="bold"', rendered)
         self.assertIn('data-command="italic"', rendered)
+        self.assertIn('data-command="underline"', rendered)
         self.assertIn('data-command="insertUnorderedList"', rendered)
+        self.assertIn('data-link-command="create"', rendered)
 
     def test_specification_form_resolves_characteristic_name_from_catalog(self):
         material = LearningMaterial.objects.create(
@@ -260,6 +264,15 @@ class LearningProductBlockModeTests(TestCase):
         script = Path(script_path).read_text(encoding="utf-8")
         self.assertIn("data-add-next-instruction-step", script)
         self.assertIn("Добавить следующий шаг", script)
+
+    def test_learning_admin_navigation_script_handles_quick_links(self):
+        script_path = finders.find("js/admin-enhancements.js")
+
+        self.assertIsNotNone(script_path)
+        script = Path(script_path).read_text(encoding="utf-8")
+        self.assertIn("setupLearningAdminNavigation", script)
+        self.assertIn("learning-admin-anchor", script)
+        self.assertIn("scrollToLearningAdminSection", script)
 
     def test_comparison_table_block_form_keeps_models_and_rows(self):
         material = LearningMaterial.objects.create(

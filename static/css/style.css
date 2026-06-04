@@ -1203,28 +1203,26 @@ h4 {
     text-underline-offset: 0.15em;
 }
 
-.rich-copy,
+.rich-copy {
+    color: var(--color-text);
+    font-size: 1rem;
+    line-height: 1.7;
+    font-weight: 450;
+    letter-spacing: 0;
+}
+
 .rich-copy p,
-.rich-copy li,
+.rich-copy li {
+    font-size: inherit;
+    line-height: inherit;
+}
+
 .rich-copy span,
 .rich-copy strong,
 .rich-copy em {
-    font-size: 1rem !important;
-    line-height: 1.7 !important;
-    letter-spacing: 0 !important;
-}
-
-.rich-copy {
-    color: var(--color-text);
-    font-weight: 450;
-}
-
-.rich-copy p,
-.rich-copy li,
-.rich-copy span,
-.rich-copy em {
     color: inherit;
     font-weight: inherit;
+    line-height: inherit;
 }
 
 .rich-copy strong {
@@ -1236,13 +1234,13 @@ h4 {
     margin-top: 12px;
 }
 
-.rich-copy--summary,
+.rich-copy--summary {
+    font-size: 18px;
+}
+
 .rich-copy--summary p,
-.rich-copy--summary li,
-.rich-copy--summary span,
-.rich-copy--summary strong,
-.rich-copy--summary em {
-    font-size: 18px !important;
+.rich-copy--summary li {
+    font-size: inherit;
 }
 
 .rich-copy img {

@@ -1,28 +1,85 @@
 <div class="rt-editor-widget" data-rich-text-widget>
   <div class="rt-editor-toolbar">
-    <button type="button" class="rt-editor-button" data-command="bold" title="Жирный текст">
-      Жирный
-    </button>
-    <button type="button" class="rt-editor-button" data-command="italic" title="Курсив">
-      Курсив
-    </button>
-    <button type="button" class="rt-editor-button" data-command="insertUnorderedList" title="Маркированный список">
-      Список
-    </button>
-    <button type="button" class="rt-editor-button" data-command="insertOrderedList" title="Нумерованный список">
-      Нумерация
-    </button>
-    <label class="rt-editor-color">
-      Цвет текста
-      <input type="color" value="#111111" data-color-command="foreColor" />
-    </label>
-    <label class="rt-editor-color">
-      Подсветка
-      <input type="color" value="#fff2a8" data-color-command="hiliteColor" />
-    </label>
-    <button type="button" class="rt-editor-button" data-command="removeFormat" title="Убрать оформление">
-      Сбросить
-    </button>
+    <div class="rt-editor-toolbar__group">
+      <label class="rt-editor-control">
+        Формат
+        <select class="rt-editor-select" data-format-block>
+          <option value="p">Обычный текст</option>
+          <option value="h2">Большой заголовок</option>
+          <option value="h3">Заголовок</option>
+          <option value="h4">Подзаголовок</option>
+          <option value="blockquote">Цитата</option>
+        </select>
+      </label>
+      <label class="rt-editor-control">
+        Размер
+        <select class="rt-editor-select" data-font-size>
+          <option value="">Обычный</option>
+          <option value="0.9rem">Мелкий</option>
+          <option value="1.15rem">Крупный</option>
+          <option value="1.35rem">Очень крупный</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="rt-editor-toolbar__group">
+      <button type="button" class="rt-editor-button" data-command="bold" title="Жирный текст">
+        Жирный
+      </button>
+      <button type="button" class="rt-editor-button" data-command="italic" title="Курсив">
+        Курсив
+      </button>
+      <button type="button" class="rt-editor-button" data-command="underline" title="Подчёркнутый текст">
+        Подчеркнуть
+      </button>
+    </div>
+
+    <div class="rt-editor-toolbar__group">
+      <button type="button" class="rt-editor-button" data-command="insertUnorderedList" title="Маркированный список">
+        Список
+      </button>
+      <button type="button" class="rt-editor-button" data-command="insertOrderedList" title="Нумерованный список">
+        Нумерация
+      </button>
+    </div>
+
+    <div class="rt-editor-toolbar__group">
+      <button type="button" class="rt-editor-button rt-editor-button--icon" data-command="justifyLeft" title="Выровнять по левому краю">
+        ←
+      </button>
+      <button type="button" class="rt-editor-button rt-editor-button--icon" data-command="justifyCenter" title="Выровнять по центру">
+        ↔
+      </button>
+      <button type="button" class="rt-editor-button rt-editor-button--icon" data-command="justifyRight" title="Выровнять по правому краю">
+        →
+      </button>
+    </div>
+
+    <div class="rt-editor-toolbar__group">
+      <button type="button" class="rt-editor-button" data-link-command="create" title="Добавить ссылку">
+        Ссылка
+      </button>
+      <button type="button" class="rt-editor-button" data-link-command="remove" title="Убрать ссылку">
+        Убрать ссылку
+      </button>
+    </div>
+
+    <div class="rt-editor-toolbar__group">
+      <label class="rt-editor-color">
+        Цвет текста
+        <input type="color" value="#111111" data-color-command="foreColor" />
+      </label>
+      <label class="rt-editor-color">
+        Подсветка
+        <input type="color" value="#fff2a8" data-color-command="hiliteColor" />
+      </label>
+    </div>
+
+    <div class="rt-editor-toolbar__group">
+      <button type="button" class="rt-editor-button" data-command="removeFormat" title="Убрать оформление">
+        Сбросить
+      </button>
+    </div>
   </div>
 
   <div
