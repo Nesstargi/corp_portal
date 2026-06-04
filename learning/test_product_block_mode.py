@@ -1,6 +1,8 @@
 import json
+from pathlib import Path
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.contrib.staticfiles import finders
 from django.test import TestCase
 from django.urls import reverse
 
@@ -250,6 +252,14 @@ class LearningProductBlockModeTests(TestCase):
         self.assertContains(response, "Откройте приложение и выберите нужную модель.")
         self.assertContains(response, "Экран выбора модели")
         self.assertContains(response, 'content-block--instruction_step')
+
+    def test_instruction_step_admin_script_has_add_next_step_button(self):
+        script_path = finders.find("js/learning-product-admin.js")
+
+        self.assertIsNotNone(script_path)
+        script = Path(script_path).read_text(encoding="utf-8")
+        self.assertIn("data-add-next-instruction-step", script)
+        self.assertIn("Добавить следующий шаг", script)
 
     def test_comparison_table_block_form_keeps_models_and_rows(self):
         material = LearningMaterial.objects.create(

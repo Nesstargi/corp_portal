@@ -1466,6 +1466,174 @@
     renderItemsEditor(row);
   }
 
+  function removeInstructionStepTools(row) {
+    if (!row) {
+      return;
+    }
+
+    row.querySelectorAll("[data-instruction-step-tools]").forEach(function (tools) {
+      tools.remove();
+    });
+  }
+
+  function renderInstructionStepTools(row) {
+    removeInstructionStepTools(row);
+
+    if (!row || getBlockType(row) !== "instruction_step") {
+      return;
+    }
+
+    var targetField =
+      findFieldContainer(row, "image") ||
+      findFieldContainer(row, "text") ||
+      findFieldContainer(row, "caption");
+    var targetRow = getFieldRow(targetField);
+    if (!targetRow) {
+      return;
+    }
+
+    var tools = document.createElement("div");
+    tools.className = "learning-instruction-step-tools";
+    tools.setAttribute("data-instruction-step-tools", "true");
+    tools.innerHTML =
+      '<button type="button" class="button learning-instruction-step-tools__button" data-add-next-instruction-step="true">' +
+      '<span aria-hidden="true">+</span>' +
+      "Добавить следующий шаг" +
+      "</button>";
+
+    targetRow.insertAdjacentElement("afterend", tools);
+  }
+
+  function getSortOrderInput(row) {
+    return row
+      ? row.querySelector('input[id$="-sort_order"], input[name$="-sort_order"]')
+      : null;
+  }
+
+  function getNextInstructionStepOrder(sourceRow) {
+    var sourceInput = getSortOrderInput(sourceRow);
+    var sourceOrder = sourceInput ? Number(sourceInput.value || 0) : 0;
+    var orderedRows = [];
+    var usedOrders = new Set();
+    var maxOrder = 0;
+
+    getBlockInlineRows().forEach(function (row) {
+      if (!row || row.classList.contains("empty-form")) {
+        return;
+      }
+
+      var sortInput = getSortOrderInput(row);
+      var order = sortInput ? Number(sortInput.value || 0) : 0;
+      if (!Number.isFinite(order)) {
+        return;
+      }
+
+      orderedRows.push({
+        row: row,
+        input: sortInput,
+        order: order,
+      });
+      usedOrders.add(String(order));
+      maxOrder = Math.max(maxOrder, order);
+    });
+
+    var nextExistingOrder = orderedRows.reduce(function (closestOrder, item) {
+      if (item.order <= sourceOrder) {
+        return closestOrder;
+      }
+      if (!Number.isFinite(closestOrder) || item.order < closestOrder) {
+        return item.order;
+      }
+      return closestOrder;
+    }, NaN);
+
+    if (Number.isFinite(nextExistingOrder)) {
+      var gap = nextExistingOrder - sourceOrder;
+      if (gap > 1) {
+        return sourceOrder + Math.floor(gap / 2);
+      }
+
+      orderedRows
+        .filter(function (item) {
+          return item.order > sourceOrder && item.input;
+        })
+        .sort(function (left, right) {
+          return right.order - left.order;
+        })
+        .forEach(function (item) {
+          item.input.value = String(item.order + 10);
+        });
+      return sourceOrder + 10;
+    }
+
+    var nextOrder = sourceOrder + 10;
+    if (!Number.isFinite(nextOrder) || nextOrder <= 0 || usedOrders.has(String(nextOrder))) {
+      nextOrder = maxOrder + 10;
+    }
+
+    return nextOrder;
+  }
+
+  function configureNewInstructionStepRow(row, sortOrder) {
+    if (!row || row.classList.contains("empty-form")) {
+      return;
+    }
+
+    var typeSelect = row.querySelector('select[id$="-block_type"], select[name$="-block_type"]');
+    var sortInput = getSortOrderInput(row);
+
+    if (typeSelect) {
+      typeSelect.value = "instruction_step";
+      typeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    if (sortInput) {
+      sortInput.value = String(sortOrder);
+    }
+
+    updateBlockRow(row);
+
+    var titleInput = row.querySelector('input[id$="-title"], input[name$="-title"]');
+    if (titleInput) {
+      titleInput.focus();
+      if (titleInput.scrollIntoView) {
+        titleInput.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }
+
+  function addNextInstructionStep(sourceRow) {
+    if (!sourceRow) {
+      return;
+    }
+
+    var group = sourceRow.closest(".inline-group") || document.getElementById("blocks-group");
+    var addLink = group ? group.querySelector(".add-row a") : null;
+    if (!addLink) {
+      window.alert("Не удалось найти кнопку добавления блока страницы.");
+      return;
+    }
+
+    var rowsBefore = Array.prototype.slice.call(getBlockInlineRows());
+    var nextOrder = getNextInstructionStepOrder(sourceRow);
+
+    addLink.click();
+
+    window.setTimeout(function () {
+      var rowsAfter = Array.prototype.slice
+        .call(getBlockInlineRows())
+        .filter(function (row) {
+          return !row.classList.contains("empty-form");
+        });
+      var newRow =
+        rowsAfter.find(function (row) {
+          return rowsBefore.indexOf(row) === -1;
+        }) || rowsAfter[rowsAfter.length - 1];
+
+      configureNewInstructionStepRow(newRow, nextOrder);
+    }, 0);
+  }
+
   function updateSpecificationBlocksFromCategories() {
     getBlockInlineRows().forEach(function (row) {
       if (getBlockType(row) !== "specification") {
@@ -1505,6 +1673,7 @@
 
     updateFieldCopy(row);
     renderItemsEditor(row);
+    renderInstructionStepTools(row);
   }
 
   function syncBlockRows() {
@@ -1589,6 +1758,16 @@
   });
 
   document.addEventListener("click", function (event) {
+    var addNextInstructionButton =
+      event.target &&
+      event.target.closest &&
+      event.target.closest("[data-add-next-instruction-step]");
+    if (addNextInstructionButton) {
+      event.preventDefault();
+      addNextInstructionStep(addNextInstructionButton.closest(".inline-related"));
+      return;
+    }
+
     if (event.target && event.target.matches("[data-add-manual-table-row]")) {
       event.preventDefault();
       addManualTableRow(event.target.closest(".inline-related"));
