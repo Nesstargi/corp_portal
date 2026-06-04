@@ -1,9 +1,15 @@
 (function () {
   var blockFieldMap = {
     text: ["sort_order", "block_type", "title", "text"],
-    image: ["sort_order", "block_type", "title", "image", "caption"],
+    image: ["sort_order", "block_type", "title", "gallery_uploads", "gallery_preview", "caption"],
     video: ["sort_order", "block_type", "title", "video_url", "caption"],
     quote: ["sort_order", "block_type", "title", "text", "caption"],
+    feature: ["sort_order", "block_type", "title", "items_data"],
+    sales_script: ["sort_order", "block_type", "title", "items_data"],
+    instruction_step: ["sort_order", "block_type", "title", "text", "image", "caption"],
+    specification: ["sort_order", "block_type", "title", "items_data"],
+    table: ["sort_order", "block_type", "title", "items_data"],
+    comparison_table: ["sort_order", "block_type", "title", "items_data"],
     file: ["sort_order", "block_type", "title", "document", "caption"]
   };
 
@@ -131,6 +137,10 @@
 
   function initializeInlineBehavior(inline) {
     if (!inline || isTemplateInline(inline) || inline.dataset.blockFieldsInitialized === "true") {
+      return;
+    }
+
+    if (document.getElementById("learning-admin-config")) {
       return;
     }
 
