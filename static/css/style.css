@@ -1,6 +1,9 @@
 :root {
     --color-ink: #111111;
+    --color-text: #1f242a;
+    --color-heading: #0f1115;
     --color-muted: #626262;
+    --color-muted-strong: #4a5159;
     --color-bg: #f7f6f3;
     --color-surface: #ffffff;
     --color-line: #e4e0d9;
@@ -18,10 +21,16 @@
 }
 
 body {
-    font-family: "Bahnschrift", "Trebuchet MS", sans-serif;
+    font-family: "Inter", "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
     background: var(--color-bg);
-    color: var(--color-ink);
+    color: var(--color-text);
     line-height: 1.6;
+    font-size: 16px;
+    font-weight: 450;
+    letter-spacing: 0;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 .site-shell {
@@ -97,8 +106,8 @@ img {
     text-decoration: none;
     color: #fff;
     font-size: 32px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    font-weight: 800;
+    letter-spacing: 0;
 }
 
 .logo-subtitle {
@@ -285,27 +294,43 @@ h2,
 h3 {
     line-height: 1.15;
     overflow-wrap: anywhere;
+    color: var(--color-heading);
+    font-weight: 800;
+    letter-spacing: 0;
 }
 
 h1 {
     font-size: clamp(34px, 5vw, 52px);
     margin-bottom: 14px;
+    line-height: 1.06;
 }
 
 h2 {
     font-size: clamp(28px, 4vw, 38px);
     margin-bottom: 14px;
+    line-height: 1.12;
 }
 
 h3 {
     font-size: 24px;
     margin-bottom: 10px;
+    line-height: 1.2;
+}
+
+h4 {
+    color: var(--color-heading);
+    font-size: 19px;
+    line-height: 1.28;
+    font-weight: 800;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
 }
 
 .lead {
     font-size: 18px;
-    color: var(--color-muted);
+    color: var(--color-muted-strong);
     max-width: 760px;
+    line-height: 1.65;
 }
 
 .section-copy {
@@ -356,7 +381,7 @@ h3 {
 }
 
 .card p {
-    color: var(--color-muted);
+    color: var(--color-muted-strong);
 }
 
 .card .button {
@@ -487,12 +512,14 @@ h3 {
 }
 
 .learning-card__excerpt {
-    color: var(--color-muted);
+    color: var(--color-muted-strong);
     display: -webkit-box;
     -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
     overflow: hidden;
     min-height: 6.8em;
+    font-weight: 500;
+    line-height: 1.62;
 }
 
 .learning-card__chips {
@@ -513,7 +540,7 @@ h3 {
 }
 
 .meta {
-    color: var(--color-muted);
+    color: var(--color-muted-strong);
     font-size: 14px;
     margin-bottom: 12px;
 }
@@ -801,7 +828,7 @@ h3 {
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: var(--color-muted);
+    color: var(--color-muted-strong);
     text-align: center;
 }
 
@@ -1131,6 +1158,10 @@ h3 {
     margin-top: 18px;
 }
 
+.stream-content {
+    color: var(--color-text);
+}
+
 .stream-content ul,
 .stream-content ol {
     margin: 14px 0 14px 24px;
@@ -1180,6 +1211,25 @@ h3 {
 .rich-copy em {
     font-size: 1rem !important;
     line-height: 1.7 !important;
+    letter-spacing: 0 !important;
+}
+
+.rich-copy {
+    color: var(--color-text);
+    font-weight: 450;
+}
+
+.rich-copy p,
+.rich-copy li,
+.rich-copy span,
+.rich-copy em {
+    color: inherit;
+    font-weight: inherit;
+}
+
+.rich-copy strong {
+    color: var(--color-heading);
+    font-weight: 800 !important;
 }
 
 .rich-copy p + p {
@@ -1364,10 +1414,10 @@ h3 {
 .material-toc__title,
 .article-note__label,
 .instruction-step__eyebrow {
-    color: var(--color-muted);
+    color: var(--color-muted-strong);
     font-size: 12px;
     font-weight: 800;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
 }
 
@@ -1443,7 +1493,7 @@ h3 {
 }
 
 .compare-section-subtitle {
-    color: var(--color-muted);
+    color: var(--color-muted-strong);
     margin-bottom: 18px;
 }
 
@@ -1481,7 +1531,7 @@ h3 {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    color: var(--color-muted);
+    color: var(--color-muted-strong);
     margin-bottom: 8px;
 }
 
@@ -1570,13 +1620,16 @@ h3 {
 }
 
 .article-note {
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--color-line);
+    padding: 18px 20px;
+    border: 1px solid var(--color-line);
+    border-radius: 18px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfaf7 100%);
+    box-shadow: 0 10px 22px rgba(17, 17, 17, 0.045);
 }
 
 .article-note:last-child {
-    padding-bottom: 0;
-    border-bottom: none;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--color-line);
 }
 
 .article-note__part {
@@ -1586,12 +1639,23 @@ h3 {
 }
 
 .article-note__text {
-    color: var(--color-muted);
+    color: var(--color-text);
+    font-weight: 650;
+}
+
+.article-note__text.rich-copy,
+.article-note__text.rich-copy p,
+.article-note__text.rich-copy li,
+.article-note__text.rich-copy span,
+.article-note__text.rich-copy strong,
+.article-note__text.rich-copy em {
+    color: var(--color-text);
+    font-weight: 650 !important;
 }
 
 .article-quote {
     margin-top: 14px;
-    background: #ffffff;
+    background: #fffdfb;
     border-radius: 14px;
     border-left: 4px solid var(--color-accent);
     padding: 16px 18px;
@@ -1604,6 +1668,16 @@ h3 {
     margin-top: 0;
     padding: 12px 14px;
     font-size: 0.95rem;
+}
+
+.article-quote--compact.rich-copy,
+.article-quote--compact.rich-copy p,
+.article-quote--compact.rich-copy li,
+.article-quote--compact.rich-copy span,
+.article-quote--compact.rich-copy strong,
+.article-quote--compact.rich-copy em {
+    color: var(--color-heading);
+    font-weight: 650 !important;
 }
 
 .instruction-step {
