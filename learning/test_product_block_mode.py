@@ -118,7 +118,7 @@ class LearningProductBlockModeTests(TestCase):
             "Этот старый структурный текст должен сохраниться рядом с новыми блоками.",
         )
 
-    def test_product_detail_renders_summary_formatting(self):
+    def test_product_detail_keeps_summary_only_for_preview(self):
         material = LearningMaterial.objects.create(
             title="Карточка с оформленным описанием",
             summary="<p><strong>Главное</strong>: <em>коротко</em>.</p><ul><li>Первый тезис</li></ul>",
@@ -129,9 +129,9 @@ class LearningProductBlockModeTests(TestCase):
         response = self.client.get(reverse("learning_detail", args=[material.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "<strong>Главное</strong>", html=True)
-        self.assertContains(response, "<em>коротко</em>", html=True)
-        self.assertContains(response, "<li>Первый тезис</li>", html=True)
+        self.assertNotContains(response, "<strong>Главное</strong>", html=True)
+        self.assertNotContains(response, "<em>коротко</em>", html=True)
+        self.assertNotContains(response, "<li>Первый тезис</li>", html=True)
 
     def test_product_detail_renders_specialized_block_types(self):
         material = LearningMaterial.objects.create(
@@ -183,10 +183,73 @@ class LearningProductBlockModeTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Два валика для сложных загрязнений")
+        self.assertContains(response, "Краткое описание")
+        self.assertContains(response, "Как преподносить клиенту")
         self.assertContains(response, "Подчеркни, что уборка получается ровнее даже в проходных зонах.")
         self.assertContains(response, "Скрипт для быстрой презентации")
         self.assertContains(response, "Мощность всасывания")
         self.assertContains(response, "210 AW")
+
+    def test_detail_hides_summary_and_renders_toc_for_titled_blocks(self):
+        material = LearningMaterial.objects.create(
+            title="Материал с оглавлением",
+            summary="Это описание должно остаться только в превью.",
+            material_type="instruction",
+            is_published=True,
+        )
+        LearningBlock.objects.create(
+            material=material,
+            sort_order=10,
+            block_type="text",
+            title="Первый раздел",
+            text="<p>Содержимое первого раздела.</p>",
+        )
+        LearningBlock.objects.create(
+            material=material,
+            sort_order=20,
+            block_type="text",
+            text="<p>Продолжение без отдельного заголовка.</p>",
+        )
+
+        response = self.client.get(reverse("learning_detail", args=[material.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Это описание должно остаться только в превью.")
+        self.assertContains(response, "Оглавление")
+        self.assertContains(response, 'href="#material-section-1"')
+        self.assertContains(response, "Первый раздел")
+        self.assertContains(response, 'content-block--untitled')
+
+    def test_instruction_step_block_renders_text_and_image(self):
+        material = LearningMaterial.objects.create(
+            title="Пошаговая инструкция",
+            summary="Инструкция для превью.",
+            material_type="instruction",
+            is_published=True,
+        )
+        image_bytes = (
+            b"GIF87a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00"
+            b"\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00"
+            b"\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+        )
+        LearningBlock.objects.create(
+            material=material,
+            sort_order=10,
+            block_type="instruction_step",
+            title="Подключить устройство",
+            text="<p>Откройте приложение и выберите нужную модель.</p>",
+            caption="Экран выбора модели",
+            image=SimpleUploadedFile("step.gif", image_bytes, content_type="image/gif"),
+        )
+
+        response = self.client.get(reverse("learning_detail", args=[material.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Шаг инструкции")
+        self.assertContains(response, "Подключить устройство")
+        self.assertContains(response, "Откройте приложение и выберите нужную модель.")
+        self.assertContains(response, "Экран выбора модели")
+        self.assertContains(response, 'content-block--instruction_step')
 
     def test_comparison_table_block_form_keeps_models_and_rows(self):
         material = LearningMaterial.objects.create(

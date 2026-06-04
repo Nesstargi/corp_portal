@@ -146,6 +146,17 @@ class LearningMaterial(models.Model):
         return reverse("learning_detail", args=[self.pk])
 
     @property
+    def toc_blocks(self):
+        return [
+            {
+                "number": index,
+                "title": block.title.strip(),
+            }
+            for index, block in enumerate(self.blocks.all(), start=1)
+            if block.title.strip()
+        ]
+
+    @property
     def telegram_summary(self):
         return (
             self.summary
@@ -303,6 +314,7 @@ class LearningBlock(models.Model):
         ("quote", "Цитата"),
         ("feature", "Фишка"),
         ("sales_script", "Скрипт продаж"),
+        ("instruction_step", "Шаг инструкции"),
         ("specification", "Характеристика"),
         ("table", "Таблица"),
         ("comparison_table", "Сравнительная таблица"),

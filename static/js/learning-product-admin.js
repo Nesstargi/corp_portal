@@ -16,6 +16,7 @@
     quote: ["text", "caption"],
     feature: ["items_data"],
     sales_script: ["items_data"],
+    instruction_step: ["text", "image", "caption"],
     specification: ["items_data"],
     table: ["items_data"],
     comparison_table: ["items_data"],
@@ -57,6 +58,12 @@
       titleHelp: "Например: Скрипты продаж или Готовые формулировки для диалога.",
       captionLabel: "Короткая подпись",
       captionHelp: "Для этого типа обычно не нужна. Главная работа идёт в карточках ниже.",
+    },
+    instruction_step: {
+      titleLabel: "Название шага",
+      titleHelp: "Необязательно. Если оставить пустым, шаг будет продолжением предыдущего блока.",
+      captionLabel: "Подпись к изображению",
+      captionHelp: "Необязательно. Можно коротко пояснить, что показано на изображении.",
     },
     specification: {
       titleLabel: "Заголовок секции",

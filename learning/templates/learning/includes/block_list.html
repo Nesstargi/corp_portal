@@ -1,5 +1,5 @@
 {% for block in blocks %}
-  <section class="content-block content-block--{{ block.block_type }}">
+  <section id="material-section-{{ forloop.counter }}" class="content-block content-block--{{ block.block_type }}{% if not block.title %} content-block--untitled{% endif %}">
     {% if block.block_type == "text" and block.text %}
       {% if block.title %}
         <h3>{{ block.title }}</h3>
@@ -72,10 +72,16 @@
                   <h4>{{ item.title }}</h4>
                 {% endif %}
                 {% if item.description %}
-                  <div class="rich-copy">{{ item.description|linebreaksbr }}</div>
+                  <div class="article-note__part">
+                    <span class="article-note__label">Краткое описание</span>
+                    <div class="article-note__text rich-copy">{{ item.description|linebreaksbr }}</div>
+                  </div>
                 {% endif %}
                 {% if item.pitch %}
-                  <blockquote class="article-quote rich-copy">{{ item.pitch|linebreaksbr }}</blockquote>
+                  <div class="article-note__part">
+                    <span class="article-note__label">Как преподносить клиенту</span>
+                    <blockquote class="article-quote article-quote--compact rich-copy">{{ item.pitch|linebreaksbr }}</blockquote>
+                  </div>
                 {% endif %}
               </article>
             {% endfor %}
@@ -116,6 +122,28 @@
           </article>
         {% endif %}
       {% endwith %}
+    {% elif block.block_type == "instruction_step" %}
+      <article class="instruction-step">
+        <div class="instruction-step__content">
+          <span class="instruction-step__eyebrow">Шаг инструкции</span>
+          {% if block.title %}
+            <h3>{{ block.title }}</h3>
+          {% endif %}
+          {% if block.text %}
+            <div class="rich-copy">{{ block.text|safe }}</div>
+          {% endif %}
+        </div>
+        {% if block.image %}
+          <figure class="instruction-step__media">
+            <img src="{{ block.image.url }}" alt="{{ block.title|default:block.caption|default:'Шаг инструкции' }}" />
+            {% if block.caption %}
+              <figcaption class="meta">{{ block.caption }}</figcaption>
+            {% endif %}
+          </figure>
+        {% elif block.caption %}
+          <p class="meta">{{ block.caption }}</p>
+        {% endif %}
+      </article>
     {% elif block.block_type == "specification" %}
       {% if block.title %}
         <h3>{{ block.title }}</h3>

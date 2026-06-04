@@ -1216,6 +1216,12 @@ h3 {
     border-top: 1px solid var(--color-line);
 }
 
+.stream-content .content-block--untitled {
+    margin-top: 12px;
+    padding-top: 0;
+    border-top: 0;
+}
+
 .article-section h2 {
     margin-bottom: 16px;
 }
@@ -1343,6 +1349,51 @@ h3 {
 .article-stack {
     display: grid;
     gap: 22px;
+}
+
+.material-toc {
+    display: grid;
+    gap: 12px;
+    padding: 16px 18px;
+    border: 1px solid var(--color-line);
+    border-radius: 18px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfaf7 100%);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.05);
+}
+
+.material-toc__title,
+.article-note__label,
+.instruction-step__eyebrow {
+    color: var(--color-muted);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.material-toc__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.material-toc__links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 6px 11px;
+    border: 1px solid rgba(255, 106, 0, 0.24);
+    border-radius: 999px;
+    background: #ffffff;
+    color: var(--color-ink);
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.material-toc__links a:hover {
+    border-color: rgba(255, 106, 0, 0.48);
+    color: var(--color-accent);
 }
 
 .related-card {
@@ -1528,6 +1579,16 @@ h3 {
     border-bottom: none;
 }
 
+.article-note__part {
+    display: grid;
+    gap: 7px;
+    margin-top: 12px;
+}
+
+.article-note__text {
+    color: var(--color-muted);
+}
+
 .article-quote {
     margin-top: 14px;
     background: #ffffff;
@@ -1537,6 +1598,48 @@ h3 {
     color: var(--color-ink);
     font-style: normal;
     box-shadow: inset 0 0 0 1px rgba(255, 106, 0, 0.12);
+}
+
+.article-quote--compact {
+    margin-top: 0;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+}
+
+.instruction-step {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.72fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.instruction-step__content {
+    display: grid;
+    gap: 10px;
+}
+
+.instruction-step__content h3 {
+    margin-bottom: 0;
+}
+
+.instruction-step__media {
+    margin: 0;
+}
+
+.instruction-step__media img {
+    display: block;
+    width: 100%;
+    max-height: 360px;
+    object-fit: contain;
+    object-position: center;
+    border-radius: 18px;
+    border: 1px solid var(--color-line);
+    background: #fafafa;
+    box-shadow: 0 14px 26px rgba(0, 0, 0, 0.07);
+}
+
+.instruction-step__media .meta {
+    margin-top: 10px;
 }
 
 .video-embed {
@@ -2404,6 +2507,24 @@ blockquote {
     .image-slider__button {
         width: 42px;
         height: 42px;
+    }
+
+    .material-toc {
+        padding: 14px;
+        border-radius: 16px;
+    }
+
+    .material-toc__links {
+        flex-direction: column;
+    }
+
+    .material-toc__links a {
+        width: 100%;
+    }
+
+    .instruction-step {
+        grid-template-columns: 1fr;
+        gap: 14px;
     }
 
     .promo-card__stats,

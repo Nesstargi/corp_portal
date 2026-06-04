@@ -12,9 +12,6 @@
           <span>{{ material.get_material_type_display }}</span>
         </div>
         <h1>{{ material.title }}</h1>
-        {% if material.summary %}
-          <div class="lead rich-copy rich-copy--summary">{{ material.summary|safe }}</div>
-        {% endif %}
         <div class="chips">
           {% for tag in material.feature_tags.all %}
             <span class="chip chip--feature">{{ tag.name }}</span>
@@ -38,6 +35,19 @@
           <img src="{{ material.cover_image.url }}" alt="{{ material.title }}" />
         </div>
       {% endif %}
+
+      {% with toc_blocks=material.toc_blocks %}
+        {% if toc_blocks %}
+          <nav class="material-toc" aria-label="Оглавление материала">
+            <div class="material-toc__title">Оглавление</div>
+            <div class="material-toc__links">
+              {% for toc_block in toc_blocks %}
+                <a href="#material-section-{{ toc_block.number }}">{{ toc_block.title }}</a>
+              {% endfor %}
+            </div>
+          </nav>
+        {% endif %}
+      {% endwith %}
 
       <article class="card stream-content">
         {% if material.material_type == "product" %}
@@ -166,10 +176,16 @@
                   <article class="article-note">
                     <h3>{{ feature.title }}</h3>
                     {% if feature.description %}
-                      <div class="rich-copy">{{ feature.description|safe }}</div>
+                      <div class="article-note__part">
+                        <span class="article-note__label">Краткое описание</span>
+                        <div class="article-note__text rich-copy">{{ feature.description|safe }}</div>
+                      </div>
                     {% endif %}
                     {% if feature.client_pitch %}
-                      <blockquote class="article-quote rich-copy">{{ feature.client_pitch|safe }}</blockquote>
+                      <div class="article-note__part">
+                        <span class="article-note__label">Как преподносить клиенту</span>
+                        <blockquote class="article-quote article-quote--compact rich-copy">{{ feature.client_pitch|safe }}</blockquote>
+                      </div>
                     {% endif %}
                   </article>
                 {% endfor %}
