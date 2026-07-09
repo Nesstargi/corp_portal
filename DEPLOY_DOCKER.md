@@ -28,7 +28,7 @@ Then fill in:
 - `DOMAIN=testcorpportal.xyz`
 - `POSTGRES_PASSWORD=...`
 - `SECRET_KEY=...`
-- `ALLOWED_HOSTS=testcorpportal.xyz`
+- `ALLOWED_HOSTS=testcorpportal.xyz,www.testcorpportal.xyz,127.0.0.1,localhost`
 - `CSRF_TRUSTED_ORIGINS=https://testcorpportal.xyz`
 
 ## Start The Project

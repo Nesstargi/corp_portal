@@ -57,7 +57,7 @@ nano .env.production
 Обязательно поменяй:
 
 - `DOMAIN` - твой домен.
-- `ALLOWED_HOSTS` - твой домен, при необходимости `www`.
+- `ALLOWED_HOSTS` - твой домен, при необходимости `www`, а также `127.0.0.1,localhost` для Docker healthcheck.
 - `CSRF_TRUSTED_ORIGINS` - `https://твой-домен`.
 - `SITE_URL` - `https://твой-домен`.
 - `POSTGRES_PASSWORD` - длинный пароль.
