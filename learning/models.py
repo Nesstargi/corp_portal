@@ -8,6 +8,23 @@ from django.urls import reverse
 from catalog.models import Brand, FeatureTag, KnowledgeArea, ProductCategory, ProductCharacteristic
 
 
+def flatten_json_text(value):
+    parts = []
+
+    def collect(item):
+        if isinstance(item, dict):
+            for nested_value in item.values():
+                collect(nested_value)
+        elif isinstance(item, list):
+            for nested_value in item:
+                collect(nested_value)
+        elif item not in (None, ""):
+            parts.append(str(item))
+
+    collect(value)
+    return " ".join(part.strip() for part in parts if part and part.strip())
+
+
 def build_youtube_embed_url(raw_url):
     raw_url = (raw_url or "").strip()
     if not raw_url:
@@ -351,6 +368,7 @@ class LearningBlock(models.Model):
     )
     caption = models.CharField("Подпись или пояснение", max_length=255, blank=True)
     items_data = models.JSONField("Внутренние элементы блока", blank=True, default=list)
+    items_text = models.TextField("Текст внутренних элементов", blank=True, editable=False)
 
     class Meta:
         ordering = ["sort_order", "id"]
@@ -359,6 +377,13 @@ class LearningBlock(models.Model):
 
     def __str__(self):
         return f"{self.material.title} [{self.get_block_type_display()}]"
+
+    def save(self, *args, **kwargs):
+        self.items_text = flatten_json_text(self.items_data)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and "items_data" in update_fields:
+            kwargs["update_fields"] = set(update_fields) | {"items_text"}
+        super().save(*args, **kwargs)
 
     @property
     def structured_items(self):

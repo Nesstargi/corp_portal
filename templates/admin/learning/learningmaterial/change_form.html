@@ -46,13 +46,39 @@
     {{ adminform.form.non_field_errors }}
 {% endif %}
 
+<section class="learning-admin-workflow" aria-label="План подготовки материала">
+  <div class="learning-admin-workflow__steps">
+    {% for step in learning_admin_steps %}
+      <div class="learning-admin-step learning-admin-step--{{ step.status }}">
+        <span class="learning-admin-step__number">{{ step.number }}</span>
+        <span class="learning-admin-step__label">{{ step.label }}</span>
+      </div>
+    {% endfor %}
+  </div>
+  <div class="learning-admin-readiness">
+    <div class="learning-admin-readiness__title">Готовность материала</div>
+    <ul class="learning-admin-readiness__list">
+      {% for check in learning_readiness_checks %}
+        <li class="learning-admin-readiness__item{% if check.ok %} is-ok{% elif check.optional %} is-optional{% endif %}">
+          <span class="learning-admin-readiness__marker" aria-hidden="true"></span>
+          <span>
+            <strong>{{ check.label }}</strong>
+            <small>{{ check.hint }}</small>
+          </span>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+
 <div class="learning-admin-layout">
   <aside class="learning-admin-nav">
     <div class="learning-admin-nav__title">Быстрая навигация</div>
     <a class="learning-admin-anchor" href="#learning-section-preview">1. Карточка</a>
     <a class="learning-admin-anchor" href="#learning-section-links">2. Бренды и фишки</a>
     <a class="learning-admin-anchor" href="#learning-section-blocks">3. Содержимое</a>
-    <a class="learning-admin-anchor" href="#learning-section-mode">4. Публикация</a>
+    <a class="learning-admin-anchor" href="#learning-section-legacy">4. Старый контент</a>
+    <a class="learning-admin-anchor" href="#learning-section-mode">5. Публикация</a>
   </aside>
 
   <div class="learning-admin-content">
@@ -70,12 +96,22 @@
 
 {% if general_blocks_inline %}
   <div class="learning-admin-section" id="learning-section-blocks">
+    {{ learning_block_schema|json_script:"learning-block-schema" }}
     {{ category_characteristics_map|json_script:"learning-category-characteristics-map" }}
     {{ all_product_characteristics|json_script:"learning-all-product-characteristics" }}
     <script id="learning-admin-config" type="application/json">
-      {"productCharacteristicAddUrl": "{{ product_characteristic_add_url|escapejs }}"}
+      {
+        "productCharacteristicAddUrl": "{{ product_characteristic_add_url|escapejs }}",
+        "categoryCharacteristicsUrl": "{{ category_characteristics_url|escapejs }}"
+      }
     </script>
     {% include general_blocks_inline.opts.template with inline_admin_formset=general_blocks_inline %}
+  </div>
+{% endif %}
+
+{% if legacy_content_fieldset %}
+  <div class="learning-admin-section" id="learning-section-legacy">
+    {% include "admin/includes/fieldset.html" with fieldset=legacy_content_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=3 %}
   </div>
 {% endif %}
 

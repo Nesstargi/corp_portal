@@ -182,6 +182,8 @@
   var categoryCharacteristicMapCache = null;
   var allCharacteristicsCache = null;
   var adminConfigCache = null;
+  var blockSchemaCache = null;
+  var categoryCharacteristicsRequestKey = "";
 
   function setSectionVisibility(selector, hidden) {
     document.querySelectorAll(selector).forEach(function (section) {
@@ -281,6 +283,39 @@
     return adminConfigCache;
   }
 
+  function getBlockSchema() {
+    if (blockSchemaCache !== null) {
+      return blockSchemaCache;
+    }
+    blockSchemaCache = readJsonScript("learning-block-schema", {});
+    return blockSchemaCache;
+  }
+
+  function getBlockDefinition(blockType) {
+    return getBlockSchema()[blockType] || null;
+  }
+
+  function getVisibleBlockFields(blockType) {
+    var definition = getBlockDefinition(blockType);
+    if (definition && Array.isArray(definition.visibleFields)) {
+      return definition.visibleFields;
+    }
+    return BLOCK_TYPE_FIELDS[blockType] || BLOCK_TYPE_FIELDS.text;
+  }
+
+  function getBlockCopy(blockType) {
+    var definition = getBlockDefinition(blockType);
+    if (definition) {
+      return {
+        titleLabel: definition.titleLabel,
+        titleHelp: definition.titleHelp,
+        captionLabel: definition.captionLabel,
+        captionHelp: definition.captionHelp,
+      };
+    }
+    return BLOCK_FIELD_COPY[blockType] || BLOCK_FIELD_COPY.text;
+  }
+
   function getSelectedCategoryIds() {
     var selectedValues = [];
     var selectedBox = document.getElementById("id_categories_to");
@@ -334,6 +369,71 @@
       }
       return String(left.name || "").localeCompare(String(right.name || ""), "ru");
     });
+  }
+
+  function mergeCategoryCharacteristicMap(nextMap) {
+    var currentMap = getCategoryCharacteristicMap();
+    Object.keys(nextMap || {}).forEach(function (categoryId) {
+      currentMap[String(categoryId)] = nextMap[categoryId] || [];
+    });
+  }
+
+  function loadCategoryCharacteristicsForSelected(callback) {
+    var adminConfig = getAdminConfig();
+    var url = adminConfig.categoryCharacteristicsUrl;
+    var selectedCategoryIds = getSelectedCategoryIds();
+    var categoryMap = getCategoryCharacteristicMap();
+    var missingCategoryIds = selectedCategoryIds.filter(function (categoryId) {
+      return !Object.prototype.hasOwnProperty.call(categoryMap, String(categoryId));
+    });
+
+    if (!url || !missingCategoryIds.length || !window.fetch) {
+      if (callback) {
+        callback();
+      }
+      return;
+    }
+
+    var requestKey = missingCategoryIds.slice().sort().join(",");
+    if (categoryCharacteristicsRequestKey === requestKey) {
+      if (callback) {
+        window.setTimeout(callback, 0);
+      }
+      return;
+    }
+    categoryCharacteristicsRequestKey = requestKey;
+
+    var query = missingCategoryIds
+      .map(function (categoryId) {
+        return "category=" + encodeURIComponent(categoryId);
+      })
+      .join("&");
+
+    fetch(url + (url.indexOf("?") === -1 ? "?" : "&") + query, {
+      credentials: "same-origin",
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+      },
+    })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error("Unable to load category characteristics.");
+        }
+        return response.json();
+      })
+      .then(function (payload) {
+        mergeCategoryCharacteristicMap(payload.categoryCharacteristics || {});
+        if (Array.isArray(payload.allCharacteristics)) {
+          allCharacteristicsCache = payload.allCharacteristics;
+        }
+      })
+      .catch(function () {})
+      .finally(function () {
+        categoryCharacteristicsRequestKey = "";
+        if (callback) {
+          callback();
+        }
+      });
   }
 
   function escapeHtml(value) {
@@ -610,7 +710,7 @@
 
   function updateFieldCopy(row) {
     var blockType = getBlockType(row);
-    var copy = BLOCK_FIELD_COPY[blockType] || BLOCK_FIELD_COPY.text;
+    var copy = getBlockCopy(blockType);
 
     [
       {
@@ -1635,24 +1735,26 @@
   }
 
   function updateSpecificationBlocksFromCategories() {
-    getBlockInlineRows().forEach(function (row) {
-      if (getBlockType(row) !== "specification") {
-        return;
-      }
+    loadCategoryCharacteristicsForSelected(function () {
+      getBlockInlineRows().forEach(function (row) {
+        if (getBlockType(row) !== "specification") {
+          return;
+        }
 
-      var input = getStructuredItemsInput(row);
-      if (!input) {
-        return;
-      }
+        var input = getStructuredItemsInput(row);
+        if (!input) {
+          return;
+        }
 
-      var items = parseItems(input);
-      if (!isSpecificationItemsEmpty(items)) {
+        var items = parseItems(input);
+        if (!isSpecificationItemsEmpty(items)) {
+          renderItemsEditor(row);
+          return;
+        }
+
+        ensureSpecificationItemsSeeded(row);
         renderItemsEditor(row);
-        return;
-      }
-
-      ensureSpecificationItemsSeeded(row);
-      renderItemsEditor(row);
+      });
     });
   }
 
@@ -1661,7 +1763,7 @@
       return;
     }
 
-    var visibleFields = new Set(BLOCK_TYPE_FIELDS[getBlockType(row)] || ["text"]);
+    var visibleFields = new Set(getVisibleBlockFields(getBlockType(row)) || ["text"]);
 
     BLOCK_FIELD_NAMES.forEach(function (fieldName) {
       var field = findFieldContainer(row, fieldName);
@@ -1837,6 +1939,7 @@
   document.addEventListener("DOMContentLoaded", function () {
     toggleLearningMode();
     syncBlockRows();
+    loadCategoryCharacteristicsForSelected(syncBlockRows);
     bindCategoryChangeHandlers();
 
     var groups = [

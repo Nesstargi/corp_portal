@@ -1,4 +1,6 @@
 (function () {
+  var DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
   function isChangeFormPage() {
     return (document.body.className || "").indexOf("change-form") !== -1;
   }
@@ -69,18 +71,41 @@
     } catch (error) {}
   }
 
-  function restoreDraftSnapshot() {
+  function readDraftSnapshot() {
     if (!isChangeFormPage()) {
-      return;
+      return null;
     }
 
     var raw = localStorage.getItem(getDraftStorageKey());
     if (!raw) {
-      return;
+      return null;
     }
 
     try {
       var payload = JSON.parse(raw);
+      var savedAt = new Date(payload.saved_at || "");
+      if (
+        savedAt &&
+        !isNaN(savedAt.getTime()) &&
+        Date.now() - savedAt.getTime() > DRAFT_MAX_AGE_MS
+      ) {
+        localStorage.removeItem(getDraftStorageKey());
+        return null;
+      }
+      return payload;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function restoreDraftSnapshot() {
+    var payload = readDraftSnapshot();
+    if (!payload) {
+      updateDraftStatus("", false, false);
+      return;
+    }
+
+    try {
       var values = payload.values || {};
 
       Object.keys(values).forEach(function (fieldName) {
@@ -104,6 +129,15 @@
 
       updateDraftStatus(payload.saved_at, true);
     } catch (error) {}
+  }
+
+  function showDraftSnapshotAvailability() {
+    var payload = readDraftSnapshot();
+    if (!payload) {
+      updateDraftStatus("", false, false);
+      return;
+    }
+    updateDraftStatus(payload.saved_at, false, false, true);
   }
 
   function clearDraftSnapshot() {
@@ -132,23 +166,29 @@
     box.innerHTML =
       '<span class="admin-draft-status__label">Черновик в браузере</span>' +
       '<span class="admin-draft-status__hint">Пока не сохранён</span>' +
-      '<button type="button" class="admin-draft-status__button">Очистить</button>';
+      '<button type="button" class="admin-draft-status__button" data-admin-draft-restore>Восстановить</button>' +
+      '<button type="button" class="admin-draft-status__button" data-admin-draft-clear>Очистить</button>';
 
     var top = document.getElementById("content-main") || form.parentElement;
     top.insertBefore(box, form);
 
-    box.querySelector(".admin-draft-status__button").addEventListener("click", clearDraftSnapshot);
+    box.querySelector("[data-admin-draft-restore]").addEventListener("click", restoreDraftSnapshot);
+    box.querySelector("[data-admin-draft-clear]").addEventListener("click", clearDraftSnapshot);
   }
 
-  function updateDraftStatus(savedAt, restored, cleared) {
+  function updateDraftStatus(savedAt, restored, cleared, available) {
     var box = document.querySelector(".admin-draft-status");
     if (!box) {
       return;
     }
 
     var hint = box.querySelector(".admin-draft-status__hint");
+    var restoreButton = box.querySelector("[data-admin-draft-restore]");
     if (!savedAt) {
       hint.textContent = cleared ? "Локальный черновик очищен" : "Пока не сохранён";
+      if (restoreButton) {
+        restoreButton.disabled = true;
+      }
       return;
     }
 
@@ -156,9 +196,14 @@
     var formatted = isNaN(date.getTime())
       ? "только что"
       : date.toLocaleString("ru-RU");
-    hint.textContent = restored
-      ? "Черновик восстановлен. Последнее сохранение: " + formatted
-      : "Последнее автосохранение: " + formatted;
+    if (restoreButton) {
+      restoreButton.disabled = false;
+    }
+    hint.textContent = available
+      ? "Найден черновик от " + formatted
+      : restored
+        ? "Черновик восстановлен. Последнее сохранение: " + formatted
+        : "Последнее автосохранение: " + formatted;
   }
 
   function isImageFile(file) {
@@ -791,7 +836,7 @@
     }
 
     ensureDraftStatusBox();
-    restoreDraftSnapshot();
+    showDraftSnapshotAvailability();
     setupImageUploadPreviews();
     toggleTelegramAudienceFields();
     toggleBroadcastTargetGroups();

@@ -152,6 +152,31 @@ class PresentationImportTests(TestCase):
                     ).exists()
                 )
 
+    def test_admin_import_preview_report_describes_slides_without_material(self):
+        with TemporaryDirectory() as temp_dir:
+            with override_settings(MEDIA_ROOT=temp_dir):
+                presentation_import = PresentationImport.objects.create(
+                    title="Материал для предпросмотра",
+                    presentation=SimpleUploadedFile(
+                        "demo.pptx",
+                        build_pptx_bytes(),
+                        content_type=(
+                            "application/vnd.openxmlformats-officedocument."
+                            "presentationml.presentation"
+                        ),
+                    ),
+                )
+
+                model_admin = PresentationImportAdmin(PresentationImport, admin.site)
+                slides = model_admin._extract_slides(presentation_import)
+                report = model_admin._build_import_preview_report(presentation_import, slides)
+
+                self.assertIsNone(presentation_import.material)
+                self.assertIn("Предварительный разбор презентации", report)
+                self.assertIn("Слайдов с содержимым: 3", report)
+                self.assertIn("Слайд 1: Первый слайд", report)
+                self.assertIn("Изображений: 1", report)
+
     def test_admin_import_adds_ocr_text_block_when_enabled(self):
         with TemporaryDirectory() as temp_dir:
             with override_settings(

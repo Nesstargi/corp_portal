@@ -12,6 +12,7 @@ from .admin import (
     LearningBlockAdminForm,
     LearningMaterialAdminForm,
 )
+from .block_schema import create_preset_blocks, get_admin_block_schema
 from .models import (
     LearningBlock,
     LearningBlockGalleryImage,
@@ -47,6 +48,53 @@ class LearningProductBlockModeTests(TestCase):
         self.assertIn("learning-block-items-json", rendered)
         self.assertEqual(form.fields["title"].label, "Заголовок секции")
         self.assertIn("удобный редактор", form.fields["items_data"].help_text)
+
+    def test_server_block_schema_exposes_admin_visibility_rules(self):
+        schema = get_admin_block_schema()
+
+        self.assertEqual(schema["video"]["visibleFields"], ["video_url", "caption"])
+        self.assertEqual(schema["feature"]["titleLabel"], "Заголовок секции")
+        self.assertIn("comparison_table", schema)
+
+    def test_product_preset_creates_material_block_skeleton(self):
+        material = LearningMaterial.objects.create(
+            title="Новый товар",
+            summary="Карточка для быстрого заполнения.",
+            material_type="product",
+            is_published=False,
+        )
+
+        created_blocks = create_preset_blocks(material, "product")
+
+        self.assertEqual(len(created_blocks), 5)
+        self.assertEqual(
+            list(material.blocks.order_by("sort_order").values_list("block_type", flat=True)),
+            ["image", "feature", "sales_script", "specification", "comparison_table"],
+        )
+
+    def test_learning_block_items_text_is_filled_for_search(self):
+        material = LearningMaterial.objects.create(
+            title="Поисковый материал",
+            summary="Проверка индекса.",
+            material_type="product",
+            is_published=True,
+        )
+
+        block = LearningBlock.objects.create(
+            material=material,
+            sort_order=10,
+            block_type="feature",
+            title="Фишки",
+            items_data=[
+                {
+                    "title": "Станция самоочистки",
+                    "description": "Упрощает уход за техникой.",
+                }
+            ],
+        )
+
+        self.assertIn("Станция самоочистки", block.items_text)
+        self.assertIn("Упрощает уход", block.items_text)
 
     def test_material_summary_uses_rich_text_editor_with_italic_control(self):
         form = LearningMaterialAdminForm()
