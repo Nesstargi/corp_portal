@@ -1,0 +1,35 @@
+{% if page_obj and page_obj.paginator.num_pages > 1 %}
+  <nav class="pagination" aria-label="Навигация по страницам">
+    <div class="pagination__actions">
+      {% if page_obj.has_previous %}
+        <a
+          class="button button--ghost pagination__link"
+          href="?{% if query_without_page %}{{ query_without_page }}&amp;{% endif %}page=1"
+          aria-label="Первая страница"
+        >В начало</a>
+        <a
+          class="button button--ghost pagination__link"
+          href="?{% if query_without_page %}{{ query_without_page }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+          rel="prev"
+        >Назад</a>
+      {% endif %}
+
+      <span class="pagination__status" aria-current="page">
+        Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+      </span>
+
+      {% if page_obj.has_next %}
+        <a
+          class="button button--ghost pagination__link"
+          href="?{% if query_without_page %}{{ query_without_page }}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+          rel="next"
+        >Вперёд</a>
+        <a
+          class="button button--ghost pagination__link"
+          href="?{% if query_without_page %}{{ query_without_page }}&amp;{% endif %}page={{ page_obj.paginator.num_pages }}"
+          aria-label="Последняя страница"
+        >В конец</a>
+      {% endif %}
+    </div>
+  </nav>
+{% endif %}

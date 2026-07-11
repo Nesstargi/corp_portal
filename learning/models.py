@@ -191,6 +191,7 @@ class LearningMaterial(models.Model):
     def has_structured_product_content(self):
         return any(
             [
+                self.content,
                 self.product_full_description,
                 self.product_video_review_url,
                 self.product_text_review,
@@ -394,17 +395,17 @@ class LearningBlock(models.Model):
         for item in self.items_data:
             if not isinstance(item, dict):
                 continue
-            cleaned_items.append(
-                {
-                    "sort_order": str(item.get("sort_order") or "").strip(),
-                    "characteristic_id": str(item.get("characteristic_id") or "").strip(),
-                    "title": str(item.get("title") or "").strip(),
-                    "description": str(item.get("description") or "").strip(),
-                    "pitch": str(item.get("pitch") or "").strip(),
-                    "name": str(item.get("name") or "").strip(),
-                    "value": str(item.get("value") or "").strip(),
-                }
-            )
+            cleaned_item = {
+                "sort_order": str(item.get("sort_order") or "").strip(),
+                "characteristic_id": str(item.get("characteristic_id") or "").strip(),
+                "title": str(item.get("title") or "").strip(),
+                "description": str(item.get("description") or "").strip(),
+                "pitch": str(item.get("pitch") or "").strip(),
+                "name": str(item.get("name") or "").strip(),
+                "value": str(item.get("value") or "").strip(),
+            }
+            if any(cleaned_item.values()):
+                cleaned_items.append(cleaned_item)
         return cleaned_items
 
     @property
@@ -412,12 +413,12 @@ class LearningBlock(models.Model):
         if not isinstance(self.items_data, dict):
             return {"models": [], "rows": []}
 
-        raw_models = self.items_data.get("models") or []
-        models = [
+        raw_models = [
             str(model or "").strip()
-            for model in raw_models
-            if str(model or "").strip()
+            for model in (self.items_data.get("models") or [])
         ]
+        model_indexes = [index for index, model in enumerate(raw_models) if model]
+        models = [raw_models[index] for index in model_indexes]
         rows = []
 
         for row in self.items_data.get("rows") or []:
@@ -429,10 +430,10 @@ class LearningBlock(models.Model):
             if not isinstance(raw_values, list):
                 raw_values = []
             values = [
-                str(raw_values[index] or "").strip()
-                if index < len(raw_values)
+                str(raw_values[source_index] or "").strip()
+                if source_index < len(raw_values)
                 else ""
-                for index in range(len(models))
+                for source_index in model_indexes
             ]
 
             if parameter or any(values):
@@ -444,6 +445,10 @@ class LearningBlock(models.Model):
                 )
 
         return {"models": models, "rows": rows}
+
+    @property
+    def video_embed_url(self):
+        return build_youtube_embed_url(self.video_url)
 
     @property
     def manual_table(self):
@@ -487,7 +492,7 @@ class LearningBlock(models.Model):
             items.append(
                 {
                     "image": self.image,
-                    "caption": self.caption,
+                    "caption": "",
                 }
             )
 

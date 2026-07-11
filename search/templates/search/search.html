@@ -9,11 +9,27 @@
     <div class="container">
       <span class="eyebrow">Поиск</span>
       <h1>Поиск по порталу</h1>
-      <p class="lead">Ищи новости, акции и материалы базы знаний по названиям, тексту, брендам, категориям и промокодам.</p>
+      <p class="lead">Найдите новости, акции и материалы базы знаний по названию, тексту, бренду, категории или промокоду.</p>
 
-      <form class="search-bar" method="get">
-        <input type="text" name="query" value="{{ search_query }}" placeholder="Например: Apple, 1C, фритюрницы, cashback" />
-        <button class="button" type="submit">Найти</button>
+      <form class="filters search-bar search-bar--compact" method="get" role="search">
+        <div class="filter-field search-bar__field">
+          <label for="portal-search-query">Поисковый запрос</label>
+          <input
+            id="portal-search-query"
+            class="form-control"
+            type="search"
+            name="query"
+            value="{{ search_query }}"
+            placeholder="Например: Apple, 1C, фритюрницы, cashback"
+            autocomplete="off"
+          />
+        </div>
+        <div class="filters__actions search-bar__actions">
+          <button class="button" type="submit">Найти</button>
+          {% if search_query %}
+            <a class="button button--ghost" href="{% url 'search' %}">Сбросить</a>
+          {% endif %}
+        </div>
       </form>
     </div>
   </section>
@@ -23,11 +39,12 @@
       {% if search_query %}
         <div class="search-summary card">
           {% if total_results %}
-            <h2>Найдено результатов: {{ total_results }}</h2>
-            <p>Разложили совпадения по новостям, акциям и базе знаний, чтобы было проще быстро сориентироваться.</p>
+            <h2>Результаты поиска</h2>
+            <p class="result-count" aria-live="polite">Найдено результатов: {{ total_results }}</p>
+            <p>Совпадения сгруппированы по новостям, акциям и базе знаний.</p>
           {% else %}
             <h2>Ничего не найдено</h2>
-            <p>Попробуй другой запрос: бренд, категорию товара, промокод, часть названия или ключевое слово из текста материала.</p>
+            <p>Попробуйте другой запрос: бренд, категорию товара, промокод, часть названия или ключевое слово.</p>
           {% endif %}
         </div>
 
@@ -81,7 +98,7 @@
           </section>
         {% endif %}
       {% else %}
-        <div class="empty-state">Введи поисковый запрос, и портал покажет подходящие новости и материалы.</div>
+        <div class="empty-state">Введите поисковый запрос, и портал покажет подходящие новости и материалы.</div>
       {% endif %}
     </div>
   </section>

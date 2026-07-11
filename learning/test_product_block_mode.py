@@ -318,9 +318,24 @@ class LearningProductBlockModeTests(TestCase):
 
         self.assertIsNotNone(script_path)
         script = Path(script_path).read_text(encoding="utf-8")
+        self.assertIn('document.querySelector("#content-main form")', script)
+        self.assertNotIn('document.querySelector("form")', script)
+        self.assertNotIn("chipsContainer.innerHTML", script)
+        self.assertNotIn("footerContainer.innerHTML", script)
+        self.assertIn("element.textContent = item", script)
+        self.assertIn("#changelist-form .field-material_type", script)
+        self.assertIn("#changelist-form .field-category", script)
+        self.assertIn("#changelist-form .field-promotion_kind", script)
+        self.assertIn('cell.querySelector("select, input, textarea")', script)
         self.assertIn("setupLearningAdminNavigation", script)
         self.assertIn("learning-admin-anchor", script)
         self.assertIn("scrollToLearningAdminSection", script)
+
+        stylesheet_path = finders.find("css/admin-enhancements.css")
+        self.assertIsNotNone(stylesheet_path)
+        stylesheet = Path(stylesheet_path).read_text(encoding="utf-8")
+        self.assertIn("flex-wrap: wrap", stylesheet)
+        self.assertIn("max-width: 100%", stylesheet)
 
     def test_comparison_table_block_form_keeps_models_and_rows(self):
         material = LearningMaterial.objects.create(

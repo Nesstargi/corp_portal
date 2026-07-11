@@ -2,6 +2,7 @@ from django.contrib import admin, messages
 from django.contrib.admin.utils import unquote
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect
+from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
@@ -233,9 +234,27 @@ class AdminDuplicateMixin:
         if obj is None:
             raise PermissionDenied
 
+        opts = self.model._meta
+        change_url = reverse(
+            f"admin:{opts.app_label}_{opts.model_name}_change",
+            args=[obj.pk],
+        )
+        if request.method != "POST":
+            context = {
+                **self.admin_site.each_context(request),
+                "title": f"Создать копию: {obj}",
+                "opts": opts,
+                "original": obj,
+                "change_url": change_url,
+            }
+            return TemplateResponse(
+                request,
+                "admin/duplicate_confirmation.html",
+                context,
+            )
+
         clone = self.clone_object(request, obj)
         self.message_user(request, "Копия записи создана.", level=messages.SUCCESS)
-        opts = self.model._meta
         return HttpResponseRedirect(
             reverse(f"admin:{opts.app_label}_{opts.model_name}_change", args=[clone.pk])
         )

@@ -1,0 +1,361 @@
+:root,
+html[data-theme="light"],
+html[data-theme="dark"] {
+    color-scheme: light;
+    --primary: #0b7f87;
+    --secondary: #315d68;
+    --accent: #075f67;
+    --primary-fg: #ffffff;
+    --body-fg: #182536;
+    --body-bg: #f5f7f9;
+    --body-quiet-color: #667381;
+    --body-medium-color: #435160;
+    --body-loud-color: #142033;
+    --header-color: #142033;
+    --header-branding-color: #142033;
+    --header-bg: #ffffff;
+    --header-link-color: #315d68;
+    --breadcrumbs-fg: #667381;
+    --breadcrumbs-link-fg: #315d68;
+    --breadcrumbs-bg: #ffffff;
+    --link-fg: #0b737b;
+    --link-hover-color: #075f67;
+    --link-selected-fg: #075f67;
+    --hairline-color: #dce2e7;
+    --border-color: #d5dde3;
+    --error-fg: #ba2d38;
+    --message-success-bg: #e8f5ef;
+    --message-warning-bg: #fff6de;
+    --message-error-bg: #fdecef;
+    --darkened-bg: #f0f4f6;
+    --selected-bg: #e7f3f3;
+    --selected-row: #edf7f7;
+    --button-fg: #ffffff;
+    --button-bg: #0b7f87;
+    --button-hover-bg: #086b72;
+    --default-button-bg: #0b7f87;
+    --default-button-hover-bg: #086b72;
+    --close-button-bg: #6f7b86;
+    --close-button-hover-bg: #59646e;
+    --delete-button-bg: #ba2d38;
+    --delete-button-hover-bg: #9c202b;
+    --object-tools-fg: #ffffff;
+    --object-tools-bg: #315d68;
+    --object-tools-hover-bg: #244a54;
+    --nav-sidebar-width: 248px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    background: #f5f7f9;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+    font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+body {
+    color: var(--body-fg);
+    background: var(--body-bg);
+    font-size: 14px;
+}
+
+#container {
+    min-width: 0;
+}
+
+#header {
+    min-height: 64px;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--hairline-color);
+    background: #ffffff;
+    box-shadow: none;
+}
+
+#branding {
+    min-width: 220px;
+}
+
+.corp-admin-brand a {
+    display: inline-flex;
+    align-items: center;
+    gap: 11px;
+    color: #142033 !important;
+    font-size: 20px;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+}
+
+.corp-admin-brand__mark {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: #0b7f87;
+    color: #ffffff;
+    font-size: 19px;
+    font-weight: 800;
+}
+
+#user-tools {
+    color: #667381;
+    font-size: 12px;
+    letter-spacing: 0;
+}
+
+#user-tools a,
+#user-tools button {
+    color: #315d68;
+    font-weight: 650;
+}
+
+.theme-toggle {
+    display: none;
+}
+
+div.breadcrumbs {
+    min-height: 44px;
+    padding: 13px 24px;
+    border-bottom: 1px solid var(--hairline-color);
+    background: #ffffff;
+    color: #7a8793;
+    font-size: 13px;
+}
+
+.main > #nav-sidebar {
+    border-right: 1px solid var(--hairline-color);
+    background: #ffffff;
+}
+
+#nav-sidebar .module {
+    margin: 0;
+    border: 0;
+    background: transparent;
+}
+
+#nav-sidebar caption {
+    padding: 20px 18px 8px;
+    background: transparent;
+    color: #7a8793;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+#nav-sidebar caption a {
+    color: inherit;
+}
+
+#nav-sidebar th,
+#nav-sidebar td {
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+#nav-sidebar th a,
+#nav-sidebar td a {
+    display: flex;
+    min-height: 40px;
+    align-items: center;
+    padding: 9px 18px;
+    border-radius: 0;
+    color: #344456;
+    font-size: 13px;
+    font-weight: 560;
+}
+
+#nav-sidebar .current-model th,
+#nav-sidebar .current-model td,
+#nav-sidebar .current-app .section {
+    background: #e7f3f3;
+}
+
+#nav-sidebar .current-model th a,
+#nav-sidebar .current-app .section {
+    color: #075f67;
+    font-weight: 750;
+}
+
+#nav-sidebar .addlink {
+    color: #0b7f87;
+    font-size: 0;
+}
+
+#nav-sidebar .addlink::after {
+    content: "+";
+    font-size: 20px;
+    line-height: 1;
+}
+
+#nav-filter {
+    width: calc(100% - 28px);
+    margin: 14px;
+    padding: 9px 11px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: #f8fafb;
+    color: #344456;
+}
+
+#content {
+    max-width: 1500px;
+    padding: 26px 30px 64px;
+}
+
+#content h1 {
+    margin: 0 0 22px;
+    color: #142033;
+    font-size: 28px;
+    font-weight: 760;
+    letter-spacing: -0.025em;
+}
+
+.module,
+.inline-group {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: none;
+}
+
+.module h2,
+.module caption,
+.inline-group h2 {
+    background: #f5f8f9;
+    color: #213144;
+    font-weight: 720;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="url"],
+input[type="number"],
+input[type="search"],
+input[type="date"],
+textarea,
+select {
+    min-height: 40px;
+    padding: 8px 11px;
+    border: 1px solid #cfd8df;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #182536;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+textarea {
+    min-height: 92px;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    border-color: #0b7f87;
+    outline: 3px solid rgba(11, 127, 135, 0.15);
+}
+
+.button,
+input[type="submit"],
+input[type="button"],
+.submit-row input,
+a.button {
+    min-height: 40px;
+    padding: 9px 15px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.object-tools a {
+    border-radius: 7px;
+    font-weight: 700;
+}
+
+#changelist .results,
+#changelist-filter,
+#toolbar,
+.paginator {
+    border-color: var(--border-color);
+    border-radius: 9px;
+    background: #ffffff;
+}
+
+#result_list thead th {
+    padding: 11px 10px;
+    background: #f1f5f6;
+    color: #40505f;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+#result_list tbody td,
+#result_list tbody th {
+    padding: 12px 10px;
+    border-color: #e7ecef;
+}
+
+.messagelist li {
+    border-radius: 8px;
+}
+
+@media (max-width: 1024px) {
+    #header {
+        padding: 0 16px;
+    }
+
+    #content {
+        padding: 22px 20px 56px;
+    }
+}
+
+@media (max-width: 767px) {
+    #header {
+        min-height: 58px;
+        align-items: center;
+    }
+
+    #branding {
+        min-width: 0;
+    }
+
+    .corp-admin-brand a {
+        font-size: 18px;
+    }
+
+    .corp-admin-brand__mark {
+        width: 30px;
+        height: 30px;
+    }
+
+    #user-tools {
+        display: none;
+    }
+
+    div.breadcrumbs {
+        padding: 11px 15px;
+    }
+
+    #content {
+        padding: 20px 15px 80px;
+    }
+
+    #content h1 {
+        font-size: 24px;
+    }
+}

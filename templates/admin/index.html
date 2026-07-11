@@ -6,15 +6,16 @@
   <link rel="stylesheet" href="{% static 'css/admin-dashboard.css' %}">
 {% endblock %}
 
+{% block content_title %}{% endblock %}
+
 {% block content %}
   <div class="admin-dashboard">
     <section class="admin-dashboard__intro">
       <div>
-        <p class="admin-dashboard__eyebrow">CorpPortal</p>
         <h1>Управление порталом</h1>
         <p>
-          На этой странице оставлены только рабочие разделы: справочники товаров,
-          база знаний, новости, акции, импорт из Google Sheets и Telegram бот.
+          Здесь собраны только основные рабочие разделы: база знаний, акции,
+          справочники товаров, Telegram и управление доступом.
         </p>
       </div>
     </section>
@@ -65,5 +66,3 @@
     {% endif %}
   </div>
 {% endblock %}
-
-{% block sidebar %}{% endblock %}

@@ -5,6 +5,10 @@
     return (document.body.className || "").indexOf("change-form") !== -1;
   }
 
+  function getChangeForm() {
+    return document.querySelector("#content-main form");
+  }
+
   function getDraftStorageKey() {
     return "corpportal-admin-draft:" + window.location.pathname;
   }
@@ -26,7 +30,7 @@
       return {};
     }
 
-    var form = document.querySelector("form");
+    var form = getChangeForm();
     if (!form) {
       return {};
     }
@@ -106,10 +110,14 @@
     }
 
     try {
+      var form = getChangeForm();
+      if (!form) {
+        return;
+      }
       var values = payload.values || {};
 
       Object.keys(values).forEach(function (fieldName) {
-        var fields = document.querySelectorAll('[name="' + CSS.escape(fieldName) + '"]');
+        var fields = form.querySelectorAll('[name="' + CSS.escape(fieldName) + '"]');
         if (!fields.length) {
           return;
         }
@@ -156,7 +164,7 @@
       return;
     }
 
-    var form = document.querySelector("form");
+    var form = getChangeForm();
     if (!form || document.querySelector(".admin-draft-status")) {
       return;
     }
@@ -169,7 +177,7 @@
       '<button type="button" class="admin-draft-status__button" data-admin-draft-restore>Восстановить</button>' +
       '<button type="button" class="admin-draft-status__button" data-admin-draft-clear>Очистить</button>';
 
-    var top = document.getElementById("content-main") || form.parentElement;
+    var top = form.parentElement;
     top.insertBefore(box, form);
 
     box.querySelector("[data-admin-draft-restore]").addEventListener("click", restoreDraftSnapshot);
@@ -408,6 +416,21 @@
     return value.slice(0, limit).trim() + "...";
   }
 
+  function renderTextItems(container, items, className) {
+    if (!container) {
+      return;
+    }
+
+    container.replaceChildren();
+    items.filter(Boolean).forEach(function (item) {
+      var element = document.createElement("span");
+      element.className = className;
+      element.textContent = item;
+      container.appendChild(element);
+    });
+    container.classList.toggle("is-hidden", container.childElementCount === 0);
+  }
+
   function formatDateInput(value) {
     if (!value || value.indexOf("-") === -1) {
       return "";
@@ -601,26 +624,10 @@
       truncateText(description, 180) || "Краткое описание появится здесь после заполнения формы.";
 
     var chipsContainer = preview.querySelector(".admin-card-preview__chips");
-    if (chipsContainer) {
-      chipsContainer.innerHTML = chips
-        .filter(Boolean)
-        .map(function (chip) {
-          return '<span class="admin-card-preview__chip">' + chip + "</span>";
-        })
-        .join("");
-      chipsContainer.classList.toggle("is-hidden", chipsContainer.innerHTML === "");
-    }
+    renderTextItems(chipsContainer, chips, "admin-card-preview__chip");
 
     var footerContainer = preview.querySelector(".admin-card-preview__footer");
-    if (footerContainer) {
-      footerContainer.innerHTML = footer
-        .filter(Boolean)
-        .map(function (item) {
-          return '<span class="admin-card-preview__meta">' + item + "</span>";
-        })
-        .join("");
-      footerContainer.classList.toggle("is-hidden", footerContainer.innerHTML === "");
-    }
+    renderTextItems(footerContainer, footer, "admin-card-preview__meta");
   }
 
   function typeBadgeClass(value) {
@@ -638,8 +645,15 @@
   }
 
   function decorateTypeBadges() {
-    document.querySelectorAll(".field-material_type, .field-category, .field-promotion_kind").forEach(function (cell) {
-      if (cell.querySelector(".admin-type-badge")) {
+    document.querySelectorAll(
+      "#changelist-form .field-material_type, " +
+        "#changelist-form .field-category, " +
+        "#changelist-form .field-promotion_kind"
+    ).forEach(function (cell) {
+      if (
+        cell.querySelector(".admin-type-badge") ||
+        cell.querySelector("select, input, textarea")
+      ) {
         return;
       }
 
@@ -648,8 +662,10 @@
         return;
       }
 
-      cell.innerHTML =
-        '<span class="admin-type-badge ' + typeBadgeClass(text) + '">' + text + "</span>";
+      var badge = document.createElement("span");
+      badge.className = "admin-type-badge " + typeBadgeClass(text);
+      badge.textContent = text;
+      cell.replaceChildren(badge);
     });
   }
 

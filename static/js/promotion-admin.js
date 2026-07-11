@@ -227,11 +227,13 @@
     var chipsContainer = preview.querySelector(".admin-card-preview__chips");
     if (chipsContainer) {
       var chips = [badge, brand].filter(Boolean);
-      chipsContainer.innerHTML = chips
-        .map(function (chip) {
-          return '<span class="admin-card-preview__chip">' + chip + "</span>";
-        })
-        .join("");
+      chipsContainer.replaceChildren();
+      chips.forEach(function (chip) {
+        var element = document.createElement("span");
+        element.className = "admin-card-preview__chip";
+        element.textContent = chip;
+        chipsContainer.appendChild(element);
+      });
       chipsContainer.classList.toggle("is-hidden", chips.length === 0);
     }
 
@@ -244,11 +246,13 @@
       if (promotionKind === "gift" && giftValue) {
         footer.push("Подарок: " + giftValue);
       }
-      footerContainer.innerHTML = footer
-        .map(function (item) {
-          return '<span class="admin-card-preview__meta">' + item + "</span>";
-        })
-        .join("");
+      footerContainer.replaceChildren();
+      footer.forEach(function (item) {
+        var element = document.createElement("span");
+        element.className = "admin-card-preview__meta";
+        element.textContent = item;
+        footerContainer.appendChild(element);
+      });
       footerContainer.classList.toggle("is-hidden", footer.length === 0);
     }
   }

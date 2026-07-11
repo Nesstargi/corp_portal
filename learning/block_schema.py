@@ -3,7 +3,7 @@ from django.utils.html import strip_tags
 
 BLOCK_TYPE_DEFINITIONS = {
     "text": {
-        "label": "Текст",
+        "label": "Обычный текст",
         "visible_fields": ("text",),
         "title_label": "Заголовок секции",
         "title_help": "Например: Что важно знать о модели или Как презентовать товар.",
@@ -12,7 +12,7 @@ BLOCK_TYPE_DEFINITIONS = {
         "empty_message": "Добавь основной текст блока.",
     },
     "image": {
-        "label": "Изображение",
+        "label": "Изображения",
         "visible_fields": ("gallery_uploads", "gallery_preview", "caption"),
         "title_label": "Заголовок галереи",
         "title_help": "Например: Внешний вид модели или Фото в интерьере.",
@@ -39,7 +39,7 @@ BLOCK_TYPE_DEFINITIONS = {
         "empty_message": "Добавь текст цитаты.",
     },
     "feature": {
-        "label": "Фишка",
+        "label": "Фишки товаров",
         "visible_fields": ("items_data",),
         "title_label": "Заголовок секции",
         "title_help": "Например: Фишки модели или Чем товар выделяется.",
@@ -48,7 +48,7 @@ BLOCK_TYPE_DEFINITIONS = {
         "empty_message": "Добавь хотя бы одну фишку.",
     },
     "sales_script": {
-        "label": "Скрипт продаж",
+        "label": "Скрипты и возражения",
         "visible_fields": ("items_data",),
         "title_label": "Заголовок секции",
         "title_help": "Например: Скрипты продаж или Готовые формулировки для диалога.",
@@ -66,7 +66,7 @@ BLOCK_TYPE_DEFINITIONS = {
         "empty_message": "Добавь текст шага или изображение.",
     },
     "specification": {
-        "label": "Характеристика",
+        "label": "Характеристики",
         "visible_fields": ("items_data",),
         "title_label": "Заголовок секции",
         "title_help": "Например: Характеристики или Ключевые параметры.",
@@ -75,7 +75,7 @@ BLOCK_TYPE_DEFINITIONS = {
         "empty_message": "Заполни хотя бы одну характеристику.",
     },
     "table": {
-        "label": "Таблица",
+        "label": "Обычная таблица",
         "visible_fields": ("items_data",),
         "title_label": "Заголовок таблицы",
         "title_help": "Например: Проценты по срокам или Условия подписки.",
@@ -84,7 +84,7 @@ BLOCK_TYPE_DEFINITIONS = {
         "empty_message": "Добавь хотя бы одну строку таблицы.",
     },
     "comparison_table": {
-        "label": "Сравнительная таблица",
+        "label": "Сравнение товаров",
         "visible_fields": ("items_data",),
         "title_label": "Заголовок таблицы",
         "title_help": "Например: Сравнение моделей или Отличия линейки.",
@@ -102,6 +102,18 @@ BLOCK_TYPE_DEFINITIONS = {
         "empty_message": "Прикрепи файл.",
     },
 }
+
+
+ADMIN_BLOCK_TYPE_KEYS = (
+    "text",
+    "image",
+    "video",
+    "feature",
+    "sales_script",
+    "specification",
+    "comparison_table",
+    "table",
+)
 
 
 PRESET_BLOCKS = {
@@ -202,7 +214,8 @@ def get_admin_block_schema():
             "captionLabel": value["caption_label"],
             "captionHelp": value["caption_help"],
         }
-        for key, value in BLOCK_TYPE_DEFINITIONS.items()
+        for key in ADMIN_BLOCK_TYPE_KEYS
+        for value in (BLOCK_TYPE_DEFINITIONS[key],)
     }
 
 
@@ -239,11 +252,9 @@ def normalize_block_items_data(block_type, items_data, characteristic_name_map=N
         if not isinstance(items_data, dict):
             return {"models": [], "rows": []}
 
-        models = [
-            str(model or "").strip()
-            for model in items_data.get("models", [])
-            if str(model or "").strip()
-        ]
+        raw_models = [str(model or "").strip() for model in items_data.get("models", [])]
+        model_indexes = [index for index, model in enumerate(raw_models) if model]
+        models = [raw_models[index] for index in model_indexes]
         rows = []
         for row in items_data.get("rows", []):
             if not isinstance(row, dict):
@@ -254,10 +265,10 @@ def normalize_block_items_data(block_type, items_data, characteristic_name_map=N
             if not isinstance(raw_values, list):
                 raw_values = []
             values = [
-                str(raw_values[index] or "").strip()
-                if index < len(raw_values)
+                str(raw_values[source_index] or "").strip()
+                if source_index < len(raw_values)
                 else ""
-                for index in range(len(models))
+                for source_index in model_indexes
             ]
 
             if parameter or any(values):
@@ -286,11 +297,12 @@ def normalize_block_items_data(block_type, items_data, characteristic_name_map=N
                     }
                 )
         elif block_type == "sales_script":
-            if normalized.get("title") or normalized.get("pitch"):
+            description = normalized.get("description") or normalized.get("pitch", "")
+            if normalized.get("title") or description:
                 cleaned_items.append(
                     {
                         "title": normalized.get("title", ""),
-                        "pitch": normalized.get("pitch", ""),
+                        "description": description,
                     }
                 )
         elif block_type == "specification":

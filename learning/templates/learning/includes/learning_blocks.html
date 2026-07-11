@@ -1,5 +1,5 @@
 {% if material.content %}
-  <div class="rich-copy">{{ material.content|safe }}</div>
+  <div class="rich-copy reading-column">{{ material.content|safe }}</div>
 {% endif %}
 
 {% include "learning/includes/block_list.html" with blocks=material.blocks.all %}

@@ -8,9 +8,28 @@ from django.db.models import Q
 
 ADMIN_DASHBOARD_SECTIONS = (
     {
+        "app_label": "content_workspace",
+        "name": "Контент сайта",
+        "description": "Материалы базы знаний и действующие предложения для сотрудников.",
+        "models": (
+            {
+                "app_label": "learning",
+                "object_name": "LearningMaterial",
+                "name": "База знаний",
+                "description": "Инструкции, товарные карточки, обзоры, скрипты продаж и обучающие материалы.",
+            },
+            {
+                "app_label": "promotions",
+                "object_name": "Promotion",
+                "name": "Акции",
+                "description": "Промоцены, подарки, сроки действия, промокоды и условия предложений.",
+            },
+        ),
+    },
+    {
         "app_label": "catalog_workspace",
         "name": "Справочники товаров",
-        "description": "Категории, бренды и фишки, которые используются в карточках, новостях и базе знаний.",
+        "description": "Категории, бренды и метки, которые используются в карточках и базе знаний.",
         "models": (
             {
                 "app_label": "catalog",
@@ -27,54 +46,14 @@ ADMIN_DASHBOARD_SECTIONS = (
             {
                 "app_label": "catalog",
                 "object_name": "FeatureTag",
-                "name": "Фишки товаров",
+                "name": "Метки",
                 "description": "Метки вроде «работает с Алисой», «самоочистка», «быстрая зарядка».",
             },
         ),
     },
     {
-        "app_label": "content_workspace",
-        "name": "Контент сайта",
-        "description": "Три публичных раздела портала: база знаний, новости компании и акции.",
-        "models": (
-            {
-                "app_label": "learning",
-                "object_name": "LearningMaterial",
-                "name": "База знаний",
-                "description": "Инструкции, товарные карточки, обзоры, скрипты продаж и обучающие материалы.",
-            },
-            {
-                "app_label": "learning",
-                "object_name": "PresentationImport",
-                "name": "Импорт презентаций",
-                "description": "Загрузка .pptx и автоматическое создание материала базы знаний по слайдам.",
-            },
-            {
-                "app_label": "news",
-                "object_name": "News",
-                "name": "Новости компании",
-                "description": "Внутренние обновления, запуск новых моделей и важные объявления.",
-            },
-            {
-                "app_label": "promotions",
-                "object_name": "Promotion",
-                "name": "Акции",
-                "description": "Промоцены, подарки, сроки действия, промокоды и условия предложений.",
-            },
-            {
-                "app_label": "promotions",
-                "object_name": "PromotionSource",
-                "name": "Импорт акций из Google Sheets",
-                "description": (
-                    "Подключение таблиц с акциями. Добавь ссылку на Google Sheets, "
-                    "затем открой список источников и запусти импорт для выбранной таблицы."
-                ),
-            },
-        ),
-    },
-    {
         "app_label": "telegram_workspace",
-        "name": "Telegram бот",
+        "name": "Telegram",
         "description": "Подписчики, группы, объединения групп и ручные рассылки в Telegram.",
         "models": (
             {
@@ -105,7 +84,7 @@ ADMIN_DASHBOARD_SECTIONS = (
     },
     {
         "app_label": "admins_workspace",
-        "name": "Администраторы",
+        "name": "Доступ",
         "description": "Доступы в админку, роли и права. Раздел видят только супер-администраторы.",
         "superuser_only": True,
         "models": (
@@ -221,6 +200,11 @@ class AdminUserAdmin(SuperuserOnlyAdminMixin, UserAdmin):
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         return queryset.filter(Q(is_staff=True) | Q(is_superuser=True))
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is None:
+            return False
+        return super().has_delete_permission(request, obj)
 
     def save_model(self, request, obj, form, change):
         if obj.pk == request.user.pk:

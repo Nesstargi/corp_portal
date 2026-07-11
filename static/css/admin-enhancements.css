@@ -92,6 +92,7 @@
 }
 
 .admin-card-preview {
+    box-sizing: border-box;
     width: min(100%, 460px);
     padding: 18px;
     border-radius: 22px;
@@ -411,10 +412,13 @@
     top: 10px;
     z-index: 30;
     display: inline-flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
     margin: 0 0 16px;
     padding: 10px 14px;
+    box-sizing: border-box;
+    max-width: 100%;
     border-radius: 14px;
     border: 1px solid #ececec;
     background: #ffffff;

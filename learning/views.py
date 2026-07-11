@@ -1,4 +1,5 @@
 from django.db.models import Prefetch
+from django.core.paginator import Paginator
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 
@@ -8,9 +9,32 @@ from .models import LearningMaterial
 
 
 def learning_list(request):
-    selected_brand = request.GET.get("brand", "")
-    selected_category = request.GET.get("category", "")
-    selected_feature = request.GET.get("feature", "")
+    selected_brand = request.GET.get("brand", "").strip()
+    selected_category = request.GET.get("category", "").strip()
+    selected_feature = request.GET.get("feature", "").strip()
+
+    brands = (
+        Brand.objects.filter(learning_materials__is_published=True)
+        .distinct()
+        .order_by("name")
+    )
+    product_categories = (
+        ProductCategory.objects.filter(learning_materials__is_published=True)
+        .distinct()
+        .order_by("name")
+    )
+    feature_tags = (
+        FeatureTag.objects.filter(learning_materials__is_published=True)
+        .distinct()
+        .order_by("name")
+    )
+
+    if selected_brand and not brands.filter(slug=selected_brand).exists():
+        selected_brand = ""
+    if selected_category and not product_categories.filter(slug=selected_category).exists():
+        selected_category = ""
+    if selected_feature and not feature_tags.filter(slug=selected_feature).exists():
+        selected_feature = ""
 
     materials = (
         LearningMaterial.objects.filter(is_published=True)
@@ -30,14 +54,47 @@ def learning_list(request):
     if selected_feature:
         materials = materials.filter(feature_tags__slug=selected_feature)
 
+    paginator = Paginator(materials.distinct(), 12)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    query_params = request.GET.copy()
+    query_params.pop("page", None)
+
+    active_filters = {
+        "brand": selected_brand,
+        "category": selected_category,
+        "feature": selected_feature,
+    }
+    active_filter_items = []
+    if selected_brand:
+        active_filter_items.append(
+            {"label": "Бренд", "value": brands.get(slug=selected_brand).name}
+        )
+    if selected_category:
+        active_filter_items.append(
+            {
+                "label": "Категория",
+                "value": product_categories.get(slug=selected_category).name,
+            }
+        )
+    if selected_feature:
+        active_filter_items.append(
+            {"label": "Фишка", "value": feature_tags.get(slug=selected_feature).name}
+        )
+
     return render(
         request,
         "learning/learning_list.html",
         {
-            "materials": materials.distinct(),
-            "brands": Brand.objects.all(),
-            "product_categories": ProductCategory.objects.all(),
-            "feature_tags": FeatureTag.objects.all(),
+            "materials": page_obj,
+            "page_obj": page_obj,
+            "result_count": paginator.count,
+            "query_without_page": query_params.urlencode(),
+            "active_filters": active_filters,
+            "active_filter_items": active_filter_items,
+            "has_active_filters": any(active_filters.values()),
+            "brands": brands,
+            "product_categories": product_categories,
+            "feature_tags": feature_tags,
             "selected_brand": selected_brand,
             "selected_category": selected_category,
             "selected_feature": selected_feature,

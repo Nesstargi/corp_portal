@@ -1,0 +1,20 @@
+{% extends "admin/base.html" %}
+{% load i18n static %}
+
+{% block title %}{{ title }} | CorpPortal{% endblock %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/admin-theme.css' %}">
+{% endblock %}
+
+{% block branding %}
+  <div id="site-name" class="corp-admin-brand">
+    <a href="{% url 'admin:index' %}">
+      <span class="corp-admin-brand__mark" aria-hidden="true">C</span>
+      <span>CorpPortal</span>
+    </a>
+  </div>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}

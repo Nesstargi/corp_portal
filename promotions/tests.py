@@ -1,12 +1,58 @@
 from datetime import date
+from pathlib import Path
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.contrib.staticfiles import finders
 from django.test import TestCase
 from django.urls import reverse
 
 from .models import Promotion, PromotionSource
 from .services import ImportResult, map_row_to_promotion, upsert_mapped_promotion
+
+
+class PromotionAdminScriptTests(TestCase):
+    def test_preview_inserts_field_values_as_text(self):
+        script_path = finders.find("js/promotion-admin.js")
+
+        self.assertIsNotNone(script_path)
+        script = Path(script_path).read_text(encoding="utf-8")
+        self.assertNotIn("chipsContainer.innerHTML", script)
+        self.assertNotIn("footerContainer.innerHTML", script)
+        self.assertIn("element.textContent = chip", script)
+        self.assertIn("element.textContent = item", script)
+
+
+class PromotionAdminDuplicateTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser(
+            username="admin",
+            password="password",
+        )
+        self.client.force_login(self.user)
+        self.promotion = Promotion.objects.create(
+            title="Проверка копирования",
+            is_published=True,
+        )
+        self.duplicate_url = reverse(
+            "admin:promotions_promotion_duplicate",
+            args=[self.promotion.pk],
+        )
+
+    def test_get_duplicate_view_only_shows_confirmation(self):
+        response = self.client.get(self.duplicate_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Создать копию")
+        self.assertEqual(Promotion.objects.count(), 1)
+
+    def test_post_duplicate_view_creates_unpublished_copy(self):
+        response = self.client.post(self.duplicate_url)
+
+        self.assertEqual(response.status_code, 302)
+        clone = Promotion.objects.exclude(pk=self.promotion.pk).get()
+        self.assertEqual(clone.title, "Проверка копирования (копия)")
+        self.assertFalse(clone.is_published)
 
 
 class PromotionSlugTests(TestCase):

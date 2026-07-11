@@ -1,147 +1,190 @@
 {% extends "admin/base_site.html" %}
 {% load i18n admin_urls static admin_modify %}
 
-{% block title %}{% if errors %}{% translate "Error:" %} {% endif %}{{ block.super }}{% endblock %}
-{% block extrahead %}{{ block.super }}
-<script src="{% url 'admin:jsi18n' %}"></script>
-{{ media }}
+{% block title %}{% if errors %}{% translate "Error:" %} {% endif %}{% if add %}Новый материал{% else %}{{ original }}{% endif %} | CorpPortal{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script src="{% url 'admin:jsi18n' %}"></script>
+  {{ media }}
 {% endblock %}
 
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static "admin/css/forms.css" %}">{% endblock %}
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'admin/css/forms.css' %}">
+  <link rel="stylesheet" href="{% static 'css/learning-editor.css' %}">
+{% endblock %}
 
 {% block coltype %}colM{% endblock %}
-{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-form{% endblock %}
+{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-form learning-editor-page{% endblock %}
 
 {% if not is_popup %}
-{% block breadcrumbs %}
-<div class="breadcrumbs">
-<a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
-&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
-&rsaquo; {% if has_view_permission %}<a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>{% else %}{{ opts.verbose_name_plural|capfirst }}{% endif %}
-&rsaquo; {% if add %}{% blocktranslate with name=opts.verbose_name %}Add {{ name }}{% endblocktranslate %}{% else %}{{ original|truncatewords:"18" }}{% endif %}
-</div>
-{% endblock %}
+  {% block breadcrumbs %}
+    <div class="breadcrumbs">
+      <a href="{% url 'admin:index' %}">Начало</a>
+      &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">База знаний</a>
+      &rsaquo; {% if add %}Новый материал{% else %}{{ original|truncatewords:"12" }}{% endif %}
+    </div>
+  {% endblock %}
 {% endif %}
 
-{% block content %}<div id="content-main">
-{% block object-tools %}
-{% if change and not is_popup %}
-  <ul class="object-tools">
-    {% block object-tools-items %}
-      {% change_form_object_tools %}
-    {% endblock %}
-  </ul>
-{% endif %}
-{% endblock %}
-<form {% if has_file_field %}enctype="multipart/form-data" {% endif %}{% if form_url %}action="{{ form_url }}" {% endif %}method="post" id="{{ opts.model_name }}_form" novalidate>{% csrf_token %}
-{% block form_top %}{% endblock %}
-<div>
-{% if is_popup %}<input type="hidden" name="{{ is_popup_var }}" value="1">{% endif %}
-{% if to_field %}<input type="hidden" name="{{ to_field_var }}" value="{{ to_field }}">{% endif %}
-{% if save_on_top %}{% submit_row %}{% endif %}
-{% if errors %}
-    <p class="errornote">
-    {% blocktranslate count counter=errors|length %}Please correct the error below.{% plural %}Please correct the errors below.{% endblocktranslate %}
-    </p>
-    {{ adminform.form.non_field_errors }}
-{% endif %}
+{% block content %}
+  <div id="content-main" class="learning-editor">
+    <form
+      {% if has_file_field %}enctype="multipart/form-data" {% endif %}
+      {% if form_url %}action="{{ form_url }}" {% endif %}
+      method="post"
+      id="{{ opts.model_name }}_form"
+      novalidate
+    >
+      {% csrf_token %}
+      {% if is_popup %}<input type="hidden" name="{{ is_popup_var }}" value="1">{% endif %}
+      {% if to_field %}<input type="hidden" name="{{ to_field_var }}" value="{{ to_field }}">{% endif %}
 
-<section class="learning-admin-workflow" aria-label="План подготовки материала">
-  <div class="learning-admin-workflow__steps">
-    {% for step in learning_admin_steps %}
-      <div class="learning-admin-step learning-admin-step--{{ step.status }}">
-        <span class="learning-admin-step__number">{{ step.number }}</span>
-        <span class="learning-admin-step__label">{{ step.label }}</span>
-      </div>
-    {% endfor %}
-  </div>
-  <div class="learning-admin-readiness">
-    <div class="learning-admin-readiness__title">Готовность материала</div>
-    <ul class="learning-admin-readiness__list">
-      {% for check in learning_readiness_checks %}
-        <li class="learning-admin-readiness__item{% if check.ok %} is-ok{% elif check.optional %} is-optional{% endif %}">
-          <span class="learning-admin-readiness__marker" aria-hidden="true"></span>
-          <span>
-            <strong>{{ check.label }}</strong>
-            <small>{{ check.hint }}</small>
-          </span>
-        </li>
-      {% endfor %}
-    </ul>
-  </div>
-</section>
+      {% if errors %}
+        <div class="learning-editor__errors" role="alert">
+          <strong>Проверьте заполнение материала.</strong>
+          {{ adminform.form.non_field_errors }}
+        </div>
+      {% endif %}
 
-<div class="learning-admin-layout">
-  <aside class="learning-admin-nav">
-    <div class="learning-admin-nav__title">Быстрая навигация</div>
-    <a class="learning-admin-anchor" href="#learning-section-preview">1. Карточка</a>
-    <a class="learning-admin-anchor" href="#learning-section-links">2. Бренды и фишки</a>
-    <a class="learning-admin-anchor" href="#learning-section-blocks">3. Содержимое</a>
-    <a class="learning-admin-anchor" href="#learning-section-legacy">4. Старый контент</a>
-    <a class="learning-admin-anchor" href="#learning-section-mode">5. Публикация</a>
-  </aside>
+      <header class="learning-editor__header">
+        <div class="learning-editor__heading">
+          <h1>{% if add %}Новый материал{% else %}Редактирование материала{% endif %}</h1>
+          {% if not add %}<p>{{ original }}</p>{% endif %}
+        </div>
+        <div class="learning-editor__header-actions">
+          <button type="submit" name="_continue" value="1" class="learning-editor-button learning-editor-button--secondary" data-material-save-state="draft">
+            Сохранить черновик
+          </button>
+          <button type="submit" name="_save" value="1" class="learning-editor-button learning-editor-button--primary" data-material-save-state="published">
+            Опубликовать
+          </button>
+        </div>
+      </header>
 
-  <div class="learning-admin-content">
-{% if preview_fieldset %}
-  <div class="learning-admin-section" id="learning-section-preview">
-    {% include "admin/includes/fieldset.html" with fieldset=preview_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=0 %}
-  </div>
-{% endif %}
+      <nav class="learning-editor-steps" aria-label="Этапы создания материала">
+        <a href="#editor-card" class="learning-editor-step is-active" data-editor-step="card">
+          <span>1</span><strong>Карточка</strong>
+        </a>
+        <a href="#editor-content" class="learning-editor-step" data-editor-step="content">
+          <span>2</span><strong>Содержимое</strong>
+        </a>
+        <a href="#editor-publish" class="learning-editor-step" data-editor-step="publish">
+          <span>3</span><strong>Публикация</strong>
+        </a>
+      </nav>
 
-{% if links_fieldset %}
-  <div class="learning-admin-section" id="learning-section-links">
-    {% include "admin/includes/fieldset.html" with fieldset=links_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=2 %}
-  </div>
-{% endif %}
+      <section class="learning-editor-section" id="editor-card" data-editor-section="card">
+        <div class="learning-editor-section__heading">
+          <h2>Карточка материала</h2>
+          <p>Название, короткое описание и связи, по которым материал найдут на портале.</p>
+        </div>
+        <div class="learning-editor-card-grid">
+          {% if preview_fieldset %}
+            {% include "admin/includes/fieldset.html" with fieldset=preview_fieldset heading_level=3 prefix="fieldset" id_prefix=0 id_suffix=0 %}
+          {% endif %}
+          {% if links_fieldset %}
+            {% include "admin/includes/fieldset.html" with fieldset=links_fieldset heading_level=3 prefix="fieldset" id_prefix=0 id_suffix=1 %}
+          {% endif %}
+        </div>
+      </section>
 
-{% if general_blocks_inline %}
-  <div class="learning-admin-section" id="learning-section-blocks">
-    {{ learning_block_schema|json_script:"learning-block-schema" }}
-    {{ category_characteristics_map|json_script:"learning-category-characteristics-map" }}
-    {{ all_product_characteristics|json_script:"learning-all-product-characteristics" }}
-    <script id="learning-admin-config" type="application/json">
-      {
-        "productCharacteristicAddUrl": "{{ product_characteristic_add_url|escapejs }}",
-        "categoryCharacteristicsUrl": "{{ category_characteristics_url|escapejs }}"
-      }
-    </script>
-    {% include general_blocks_inline.opts.template with inline_admin_formset=general_blocks_inline %}
-  </div>
-{% endif %}
+      <section class="learning-editor-section learning-editor-section--content" id="editor-content" data-editor-section="content">
+        <div class="learning-editor-section__heading learning-editor-section__heading--blocks">
+          <div>
+            <h2>Содержимое</h2>
+            <p>Соберите материал из понятных блоков. Нужные поля появятся автоматически.</p>
+          </div>
+        </div>
 
-{% if legacy_content_fieldset %}
-  <div class="learning-admin-section" id="learning-section-legacy">
-    {% include "admin/includes/fieldset.html" with fieldset=legacy_content_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=3 %}
-  </div>
-{% endif %}
+        <div class="learning-block-palette" aria-label="Добавить блок">
+          {% for block_type in learning_block_palette %}
+            <button type="button" class="learning-block-palette__button" data-add-learning-block="{{ block_type.key }}">
+              <svg class="learning-block-palette__icon" viewBox="0 0 24 24" aria-hidden="true">
+                {% if block_type.key == "text" %}
+                  <path d="M5 5h14M12 5v14M8 19h8" />
+                {% elif block_type.key == "image" %}
+                  <rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m5 18 5-5 3 3 2-2 4 4" />
+                {% elif block_type.key == "video" %}
+                  <rect x="3" y="4" width="18" height="16" rx="2" /><path d="m10 9 5 3-5 3z" />
+                {% elif block_type.key == "feature" %}
+                  <path d="m12 3 2.6 5.3 5.9.9-4.3 4.2 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.2 5.9-.9z" />
+                {% elif block_type.key == "sales_script" %}
+                  <path d="M5 5h14v10H9l-4 4z" /><path d="M8 9h8M8 12h5" />
+                {% elif block_type.key == "specification" %}
+                  <path d="M8 6h12M8 12h12M8 18h12" /><circle cx="4" cy="6" r="1" /><circle cx="4" cy="12" r="1" /><circle cx="4" cy="18" r="1" />
+                {% elif block_type.key == "comparison_table" %}
+                  <path d="M12 4v16M5 7h14M7 7l-3 6h6zM17 7l-3 6h6zM8 20h8" />
+                {% else %}
+                  <rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M10 4v16" />
+                {% endif %}
+              </svg>
+              <span>{{ block_type.label }}</span>
+            </button>
+          {% endfor %}
+        </div>
 
-{% if material_mode_fieldset %}
-  <div class="learning-admin-section" id="learning-section-mode">
-    {% include "admin/includes/fieldset.html" with fieldset=material_mode_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=1 %}
-  </div>
-{% endif %}
+        {{ learning_block_schema|json_script:"learning-block-schema" }}
+        {{ category_characteristics_map|json_script:"learning-category-characteristics-map" }}
+        {{ all_product_characteristics|json_script:"learning-all-product-characteristics" }}
+        <script id="learning-admin-config" type="application/json">
+          {
+            "productCharacteristicAddUrl": "{{ product_characteristic_add_url|escapejs }}",
+            "categoryCharacteristicsUrl": "{{ category_characteristics_url|escapejs }}"
+          }
+        </script>
 
-{% if system_fieldset %}
-  <div class="learning-admin-section">
-    {% include "admin/includes/fieldset.html" with fieldset=system_fieldset heading_level=2 prefix="fieldset" id_prefix=0 id_suffix=4 %}
-  </div>
-{% endif %}
-
-  </div>
-</div>
-
-{% submit_row %}
-
-<script id="django-admin-form-add-constants"
-        src="{% static 'admin/js/change_form.js' %}"
-        {% if adminform and add %}
-            data-model-name="{{ opts.model_name }}"
+        {% if general_blocks_inline %}
+          <div class="learning-editor-blocks" data-learning-editor-blocks>
+            {% include general_blocks_inline.opts.template with inline_admin_formset=general_blocks_inline %}
+          </div>
         {% endif %}
-        async>
-</script>
+        <div class="learning-editor-empty" data-learning-editor-empty>
+          <strong>Пока нет блоков</strong>
+          <span>Выберите нужный тип выше — блок сразу появится здесь.</span>
+        </div>
+      </section>
 
-{% prepopulated_fields_js %}
+      <section class="learning-editor-section" id="editor-publish" data-editor-section="publish">
+        <div class="learning-editor-section__heading">
+          <h2>Публикация</h2>
+          <p>Проверьте готовый материал, при необходимости отправьте его в Telegram.</p>
+        </div>
+        {% if material_mode_fieldset %}
+          {% include "admin/includes/fieldset.html" with fieldset=material_mode_fieldset heading_level=3 prefix="fieldset" id_prefix=0 id_suffix=2 %}
+        {% endif %}
+        {% if system_fieldset %}
+          <details class="learning-editor-system">
+            <summary>Служебная информация</summary>
+            {% include "admin/includes/fieldset.html" with fieldset=system_fieldset heading_level=3 prefix="fieldset" id_prefix=0 id_suffix=3 %}
+          </details>
+        {% endif %}
+      </section>
 
-</div>
-</form></div>
+      <div class="learning-editor-savebar">
+        <div class="learning-editor-savebar__status">
+          <span class="learning-editor-savebar__dot" aria-hidden="true"></span>
+          <span>{% if original and original.is_published %}Материал опубликован{% else %}Материал сохранится как черновик{% endif %}</span>
+        </div>
+        <div class="learning-editor-savebar__actions">
+          {% if change and has_delete_permission %}
+            <a href="{% url opts|admin_urlname:'delete' original.pk|admin_urlquote %}" class="learning-editor-delete">Удалить материал</a>
+          {% endif %}
+          <button type="submit" name="_continue" value="1" class="learning-editor-button learning-editor-button--secondary" data-material-save-state="draft">
+            Сохранить черновик
+          </button>
+          <button type="submit" name="_save" value="1" class="learning-editor-button learning-editor-button--primary" data-material-save-state="published">
+            Опубликовать
+          </button>
+        </div>
+      </div>
+
+      <script id="django-admin-form-add-constants"
+              src="{% static 'admin/js/change_form.js' %}"
+              {% if adminform and add %}data-model-name="{{ opts.model_name }}"{% endif %}
+              async></script>
+      {% prepopulated_fields_js %}
+    </form>
+  </div>
 {% endblock %}

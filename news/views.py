@@ -1,3 +1,4 @@
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, render
 
 from learning.models import LearningMaterial
@@ -33,12 +34,26 @@ def home(request):
 
 
 def news_list(request):
-    news = (
+    news_queryset = (
         News.objects.filter(is_published=True)
         .prefetch_related("brands", "product_categories", "feature_tags", "blocks")
         .order_by("-created_at")
     )
-    return render(request, "news/news_list.html", {"news": news})
+    paginator = Paginator(news_queryset, 12)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    query_params = request.GET.copy()
+    query_params.pop("page", None)
+
+    return render(
+        request,
+        "news/news_list.html",
+        {
+            "news": page_obj,
+            "page_obj": page_obj,
+            "result_count": paginator.count,
+            "query_without_page": query_params.urlencode(),
+        },
+    )
 
 
 def news_detail(request, pk):

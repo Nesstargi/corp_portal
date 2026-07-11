@@ -37,8 +37,9 @@ from .models import (
     PresentationImport,
 )
 from .block_schema import (
+    ADMIN_BLOCK_TYPE_KEYS,
+    BLOCK_TYPE_DEFINITIONS,
     block_has_content,
-    create_preset_blocks,
     get_admin_block_schema,
     get_block_empty_message,
     normalize_block_items_data,
@@ -76,12 +77,14 @@ class LearningMaterialAdminForm(forms.ModelForm):
         self.fields["summary"].label = "Краткое описание"
         self.fields["summary"].help_text = "Показывается в списке базы знаний и на главной странице."
         self.fields["material_type"].label = "Формат материала"
-        self.fields["brands"].label = "Бренды"
-        self.fields["categories"].label = "Категории товаров"
-        self.fields["feature_tags"].label = "Фишки товаров"
+        self.fields["brands"].label = "Бренд"
+        self.fields["categories"].label = "Категория товара"
+        self.fields["feature_tags"].label = "Метки"
         self.fields["feature_tags"].help_text = (
-            "Например: работает с Алисой, самоочистка, тихий режим, быстрая зарядка."
+            "Метки помогают находить и связывать материалы. Например: самоочистка или быстрая зарядка."
         )
+        if not self.instance.pk:
+            self.fields["is_published"].initial = False
 
     def clean(self):
         cleaned_data = super().clean()
@@ -162,14 +165,24 @@ class LearningBlockAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        admin_choices = [
+            (key, BLOCK_TYPE_DEFINITIONS[key]["label"])
+            for key in ADMIN_BLOCK_TYPE_KEYS
+        ]
+        current_type = str(getattr(self.instance, "block_type", "") or "")
+        if self.instance.pk and current_type not in ADMIN_BLOCK_TYPE_KEYS:
+            legacy_labels = dict(LearningBlock.BLOCK_TYPE_CHOICES)
+            admin_choices.append(
+                (current_type, f"{legacy_labels.get(current_type, current_type)} — старый блок")
+            )
+        self.fields["block_type"].choices = admin_choices
+        self.fields["block_type"].label = "Тип блока"
         self.fields["title"].label = "Заголовок секции"
         self.fields["title"].help_text = (
             "Необязательно. Например: Фишки модели, Скрипты продаж, Ключевые характеристики."
         )
         self.fields["caption"].label = "Короткая подпись"
-        self.fields["caption"].help_text = (
-            "Используется для изображений, видео, цитат и файлов. Для фишек и характеристик не нужна."
-        )
+        self.fields["caption"].help_text = "Необязательное пояснение под медиа или таблицей."
         self.fields["text"].help_text = (
             "Основной текст для обычного текстового блока или цитаты."
         )
@@ -178,7 +191,6 @@ class LearningBlockAdminForm(forms.ModelForm):
             "Для фишек, скриптов продаж, характеристик и таблиц ниже появится удобный редактор."
         )
         self.fields["video_url"].help_text = "Вставь ссылку на видеообзор или ролик."
-        self.fields["document"].help_text = "Прикрепи PDF, инструкцию, прайс или другой файл."
 
     def clean_items_data(self):
         items_data = self.cleaned_data.get("items_data") or []
@@ -254,10 +266,10 @@ class LearningBlockInline(admin.StackedInline):
     model = LearningBlock
     form = LearningBlockAdminForm
     formset = LearningBlockInlineFormSet
-    extra = 1
+    extra = 0
     classes = ("section-general-blocks",)
-    verbose_name = "Блок страницы"
-    verbose_name_plural = "Блоки страницы"
+    verbose_name = "Блок"
+    verbose_name_plural = "Содержимое материала"
     readonly_fields = ("gallery_preview",)
     fieldsets = (
         (
@@ -349,35 +361,7 @@ class LearningMaterialAdmin(
     form = LearningMaterialAdminForm
     change_form_template = "admin/learning/learningmaterial/change_form.html"
     image_recommendation = (1600, 900)
-    template_presets = (
-        {
-            "key": "product",
-            "label": "Создать: товарный материал",
-            "initial": {
-                "material_type": "product",
-                "title": "Новый товарный материал",
-                "summary": "Короткое описание товара для карточки.",
-            },
-        },
-        {
-            "key": "process",
-            "label": "Создать: процесс",
-            "initial": {
-                "material_type": "process",
-                "title": "Новый процесс",
-                "summary": "Коротко опиши, чему посвящён материал.",
-            },
-        },
-        {
-            "key": "instruction",
-            "label": "Создать: инструкция",
-            "initial": {
-                "material_type": "instruction",
-                "title": "Новая инструкция",
-                "summary": "Коротко опиши, что сотрудник найдёт внутри.",
-            },
-        },
-    )
+    template_presets = ()
     quick_filters = (
         {"label": "Все", "key": "is_published__exact", "value": ""},
         {"label": "Опубликованные", "key": "is_published__exact", "value": "1"},
@@ -414,11 +398,12 @@ class LearningMaterialAdmin(
         "created_at",
         "updated_at",
     )
-    filter_horizontal = (
+    autocomplete_fields = (
         "brands",
         "categories",
-        "areas",
         "feature_tags",
+    )
+    filter_horizontal = (
         "telegram_target_groups",
         "telegram_target_subscribers",
         "telegram_target_group_chats",
@@ -441,7 +426,6 @@ class LearningMaterialAdmin(
                     "summary",
                     "material_type",
                     ("cover_image", "cover_preview"),
-                    "card_preview",
                 ),
                 "classes": ("article-section", "section-preview"),
                 "description": (
@@ -473,32 +457,14 @@ class LearningMaterialAdmin(
             },
         ),
         (
-            "Бренды, категории и фишки",
+            "Связи материала",
             {
                 "fields": (
-                    "brands",
                     "categories",
-                    "areas",
+                    "brands",
                     "feature_tags",
                 ),
                 "classes": ("article-section", "section-links"),
-            },
-        ),
-        (
-            "Дополнительный старый контент",
-            {
-                "fields": (
-                    "content",
-                    "product_full_description",
-                    "product_video_review_url",
-                    "product_text_review",
-                    "product_short_summary",
-                ),
-                "classes": ("collapse", "article-section", "section-legacy-content"),
-                "description": (
-                    "Основной новый формат - блоки страницы ниже. Эти поля оставлены для старых "
-                    "материалов и постепенного переноса товарного описания в универсальные блоки."
-                ),
             },
         ),
         (
@@ -702,20 +668,6 @@ class LearningMaterialAdmin(
         ]
         return checks
 
-    def _seed_preset_blocks(self, request, material):
-        preset_key = request.GET.get("template", "").strip()
-        if not preset_key or material.blocks.exists():
-            return []
-
-        created_blocks = create_preset_blocks(material, preset_key)
-        if created_blocks:
-            self.message_user(
-                request,
-                f"Добавлена заготовка блоков: {len(created_blocks)}. Проверь и заполни содержимое.",
-                level=messages.INFO,
-            )
-        return created_blocks
-
     @admin.display(description="Как будет выглядеть карточка")
     def card_preview(self, obj):
         description = strip_tags(
@@ -893,18 +845,17 @@ class LearningMaterialAdmin(
 
             context.update(
                 {
-                    "learning_admin_steps": self._build_admin_steps(form, obj),
-                    "learning_readiness_checks": self._build_readiness_checks(form, obj),
                     "learning_block_schema": get_admin_block_schema(),
+                    "learning_block_palette": [
+                        {"key": key, "label": BLOCK_TYPE_DEFINITIONS[key]["label"]}
+                        for key in ADMIN_BLOCK_TYPE_KEYS
+                    ],
                     "preview_fieldset": self._find_fieldset(adminform, "section-preview"),
                     "material_mode_fieldset": self._find_fieldset(
                         adminform, "section-material-mode"
                     ),
                     "links_fieldset": self._find_fieldset(
                         adminform, "section-links"
-                    ),
-                    "legacy_content_fieldset": self._find_fieldset(
-                        adminform, "section-legacy-content"
                     ),
                     "system_fieldset": self._find_fieldset(adminform, "section-system"),
                     "general_blocks_inline": self._find_inline(
@@ -934,9 +885,6 @@ class LearningMaterialAdmin(
 
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
-
-        if not change:
-            self._seed_preset_blocks(request, form.instance)
 
         if not form.cleaned_data.get("send_telegram_notification"):
             return
@@ -1013,7 +961,6 @@ class LearningMaterialAdmin(
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
 
-@admin.register(PresentationImport)
 class PresentationImportAdmin(admin.ModelAdmin):
     change_form_template = "admin/learning/presentationimport/change_form.html"
     list_display = (
