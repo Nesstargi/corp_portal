@@ -25,12 +25,20 @@
 
   function updateToggle(toggle, theme) {
     var corporateIsActive = theme === corporateTheme;
+    var currentLabel = corporateIsActive
+      ? "Корпоративный стиль"
+      : "Классический стиль";
     var actionLabel = corporateIsActive
-      ? "Включить текущий стиль"
+      ? "Включить классический стиль"
       : "Включить корпоративный стиль";
+    var visibleLabel = toggle.querySelector("[data-theme-toggle-label]");
+
+    if (visibleLabel) {
+      visibleLabel.textContent = currentLabel;
+    }
 
     toggle.setAttribute("aria-pressed", corporateIsActive ? "true" : "false");
-    toggle.setAttribute("aria-label", actionLabel);
+    toggle.setAttribute("aria-label", currentLabel + ". " + actionLabel);
     toggle.setAttribute("title", actionLabel);
   }
 

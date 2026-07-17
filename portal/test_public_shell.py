@@ -10,6 +10,8 @@ class PublicShellTests(TestCase):
         response = self.client.get(reverse("home"))
 
         self.assertContains(response, "data-theme-toggle")
+        self.assertContains(response, "data-theme-toggle-label")
+        self.assertContains(response, "Классический стиль")
         self.assertContains(response, "public-theme-switcher.js")
         self.assertContains(response, "data-nav-toggle")
         self.assertContains(response, "data-nav-backdrop")
@@ -30,3 +32,5 @@ class PublicShellTests(TestCase):
         self.assertIn('var storageKey = "corpportal-public-theme";', script)
         self.assertIn("window.localStorage.setItem(storageKey, theme)", script)
         self.assertIn("document.documentElement.dataset.publicTheme", script)
+        self.assertIn('"Классический стиль"', script)
+        self.assertIn('"Корпоративный стиль"', script)
