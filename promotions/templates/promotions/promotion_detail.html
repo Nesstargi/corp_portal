@@ -25,6 +25,9 @@
             <p class="lead">{{ promotion.card_summary }}</p>
           {% endif %}
           <div class="chips">
+            {% if promotion.lifecycle_status == "upcoming" %}
+              <span class="chip chip--feature">Скоро начнётся</span>
+            {% endif %}
             {% if promotion.start_date %}
               <span class="chip">Старт: {{ promotion.start_date|date:"d.m.Y" }}</span>
             {% endif %}

@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from django.test import TestCase
+from django.utils import timezone
 
 from catalog.models import Brand, FeatureTag, ProductCategory
 from learning.models import LearningMaterial
@@ -98,3 +101,18 @@ class RecommendationTests(TestCase):
         self.assertIn("Новость Xiaomi", titles)
         self.assertIn("Материал Xiaomi", titles)
         self.assertNotIn("Главная акция", titles)
+
+    def test_build_related_content_excludes_finished_promotions(self):
+        brand = Brand.objects.create(name="Honor")
+        news = News.objects.create(title="Новость Honor", is_published=True)
+        news.brands.add(brand)
+        Promotion.objects.create(
+            title="Завершённая акция Honor",
+            is_published=True,
+            brand="Honor",
+            end_date=timezone.localdate() - timedelta(days=1),
+        )
+
+        items = build_related_content_for_news(news)
+
+        self.assertNotIn("Завершённая акция Honor", {item["title"] for item in items})

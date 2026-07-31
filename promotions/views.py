@@ -13,13 +13,11 @@ PROMOTION_TYPE_TABS = (
     ("gift", "Подарок"),
 )
 
-VALID_PROMOTION_STATUSES = {"", "active", "upcoming", "finished", "all"}
+VALID_PROMOTION_STATUSES = {"", "active", "upcoming"}
 VALID_PROMOTION_TYPES = {key for key, _label in PROMOTION_TYPE_TABS}
 PROMOTION_STATUS_LABELS = {
     "active": "Активные",
     "upcoming": "Скоро начнутся",
-    "finished": "Завершённые",
-    "all": "Все статусы",
 }
 PROMOTION_TYPE_LABELS = dict(PROMOTION_TYPE_TABS)
 
@@ -138,9 +136,7 @@ def promotion_list(request):
         selected_promo_type = ""
     today = timezone.localdate()
 
-    filter_source = Promotion.objects.filter(is_published=True).exclude(
-        promotion_kind=Promotion.KIND_PREORDER
-    )
+    filter_source = Promotion.objects.visible_on_site(today)
     brands, brand_lookup = build_brand_filter_options(filter_source)
     selected_brand_entry = brand_lookup.get(selected_brand.casefold())
     if selected_brand and selected_brand_entry:
@@ -168,18 +164,9 @@ def promotion_list(request):
         )
 
     if selected_status == "active":
-        promotions = promotions.filter(
-            Q(start_date__isnull=True) | Q(start_date__lte=today),
-            Q(end_date__isnull=True) | Q(end_date__gte=today),
-        )
+        promotions = promotions.active_on(today)
     elif selected_status == "upcoming":
-        promotions = promotions.filter(start_date__gt=today)
-    elif selected_status == "finished":
-        promotions = promotions.filter(end_date__lt=today)
-    elif selected_status == "all":
-        pass
-    else:
-        promotions = promotions.filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
+        promotions = promotions.upcoming_on(today)
 
     promotion_type_tabs = build_promo_type_tabs(request, promotions)
     promotions = apply_promo_type_filter(promotions, selected_promo_type)
@@ -238,9 +225,8 @@ def promotion_list(request):
 
 def promotion_detail(request, slug):
     promotion = get_object_or_404(
-        Promotion.objects.exclude(promotion_kind=Promotion.KIND_PREORDER),
+        Promotion.objects.visible_on_site(),
         slug=slug,
-        is_published=True,
     )
     return render(
         request,

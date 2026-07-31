@@ -205,6 +205,18 @@
     background: #eef5f8;
 }
 
+.admin-status-badge.is-upcoming {
+    color: #1f4f66;
+    background: #eef5f8;
+    border-color: #b8d3df;
+}
+
+.admin-status-badge.is-finished {
+    color: #6b3131;
+    background: #fff1f1;
+    border-color: #efc3c3;
+}
+
 #changelist-form .field-promotion_kind select {
     display: block;
     width: 174px;

@@ -27,8 +27,7 @@ def search(request):
             .distinct()
         )
         promotion_results = (
-            Promotion.objects.filter(is_published=True)
-            .exclude(promotion_kind=Promotion.KIND_PREORDER)
+            Promotion.objects.visible_on_site()
             .filter(
                 Q(title__icontains=search_query)
                 | Q(summary__icontains=search_query)

@@ -46,8 +46,6 @@
               <option value="" {% if not selected_status %}selected{% endif %}>Актуальные и будущие</option>
               <option value="active" {% if selected_status == "active" %}selected{% endif %}>Активные</option>
               <option value="upcoming" {% if selected_status == "upcoming" %}selected{% endif %}>Скоро начнутся</option>
-              <option value="finished" {% if selected_status == "finished" %}selected{% endif %}>Завершённые</option>
-              <option value="all" {% if selected_status == "all" %}selected{% endif %}>Все</option>
             </select>
           </div>
           <div class="filters__actions">
@@ -101,6 +99,7 @@
               </div>
               <div class="promo-card__body">
                 <div class="meta promo-card__meta">
+                  {% if item.lifecycle_status == "upcoming" %}<span class="card-kind">Скоро</span>{% endif %}
                   {% if item.badge %}<span class="card-kind">{{ item.badge }}</span>{% endif %}
                   {% if item.brand %}<span>{{ item.brand }}</span>{% endif %}
                   {% if item.category %}<span>{{ item.category }}</span>{% endif %}

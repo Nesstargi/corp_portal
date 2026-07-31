@@ -141,7 +141,6 @@ def _get_related_learning(
 
 
 def _get_related_promotions(*, brand_names=None, category_names=None, exclude_pk=None, limit=1):
-    today = timezone.localdate()
     query = _combine_queries(
         [
             _build_ci_string_query("brand", brand_names or []),
@@ -152,10 +151,8 @@ def _get_related_promotions(*, brand_names=None, category_names=None, exclude_pk
         return []
 
     return list(
-        Promotion.objects.filter(is_published=True)
-        .exclude(promotion_kind=Promotion.KIND_PREORDER)
+        Promotion.objects.visible_on_site()
         .exclude(pk=exclude_pk)
-        .filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
         .filter(query)
         .order_by("-is_featured", "sort_order", "title")[:limit]
     )

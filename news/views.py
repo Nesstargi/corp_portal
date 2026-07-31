@@ -13,8 +13,7 @@ def home(request):
         "brands", "product_categories", "feature_tags"
     )[:3]
     latest_promotions = (
-        Promotion.objects.filter(is_published=True)
-        .exclude(promotion_kind=Promotion.KIND_PREORDER)
+        Promotion.objects.visible_on_site()
         .order_by("-is_featured", "sort_order", "title")[:3]
     )
     latest_learning = (

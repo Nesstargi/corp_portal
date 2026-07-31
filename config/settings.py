@@ -198,6 +198,32 @@ PRESENTATION_OCR_TESSDATA_DIR = os.getenv(
     os.getenv("TESSDATA_PREFIX", ""),
 ).strip()
 
+# Source-specific enrichment for fields that are known to the business but are
+# absent from the shared Google Sheet. Strict matching makes stale rules fail
+# safely during import validation instead of assigning an incorrect variant.
+PROMOTION_IMPORT_ROW_OVERRIDES = {
+    "1MpExcY6Q_tzezTYIVAe-VyaV_rMLnIFlWA9uv6WJWGk": (
+        {
+            "match": {
+                "title": "Умные часы Honor Watch 5 (STL-B19)",
+                "promo_price": "399",
+                "start_date": "23.06.2026",
+                "end_date": "04.08.2026",
+            },
+            "set": {"color": "чёрный"},
+        },
+        {
+            "match": {
+                "title": "Умные часы Honor Watch 5 (STL-B19)",
+                "promo_price": "499",
+                "start_date": "23.06.2026",
+                "end_date": "04.08.2026",
+            },
+            "set": {"color": "зелёный"},
+        },
+    ),
+}
+
 if not DEBUG:
     STORAGES["staticfiles"] = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",

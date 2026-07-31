@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from learning.models import LearningMaterial
 from news.models import News
@@ -35,3 +38,21 @@ class SearchViewTests(TestCase):
         self.assertEqual(response.context["learning_count"], 1)
         self.assertEqual(response.context["promotion_count"], 1)
         self.assertEqual(response.context["total_results"], 3)
+
+    def test_search_excludes_finished_promotions(self):
+        Promotion.objects.create(
+            title="Samsung завершённая акция",
+            is_published=True,
+            end_date=timezone.localdate() - timedelta(days=1),
+        )
+        Promotion.objects.create(
+            title="Samsung актуальная акция",
+            is_published=True,
+            end_date=timezone.localdate() + timedelta(days=1),
+        )
+
+        response = self.client.get(reverse("search"), {"query": "Samsung"})
+
+        titles = {item.title for item in response.context["promotion_results"]}
+        self.assertEqual(titles, {"Samsung актуальная акция"})
+        self.assertEqual(response.context["promotion_count"], 1)

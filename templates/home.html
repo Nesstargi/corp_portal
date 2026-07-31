@@ -96,7 +96,11 @@
                 <strong>{{ item.title }}</strong>
                 <span>{{ item.benefit_summary|default:item.card_summary|default:item.summary|default:item.details|striptags|truncatechars:100 }}</span>
               </span>
-              {% if item.end_date %}<time datetime="{{ item.end_date|date:'Y-m-d' }}">до {{ item.end_date|date:"d.m" }}</time>{% endif %}
+              {% if item.lifecycle_status == "upcoming" and item.start_date %}
+                <time datetime="{{ item.start_date|date:'Y-m-d' }}">с {{ item.start_date|date:"d.m" }}</time>
+              {% elif item.end_date %}
+                <time datetime="{{ item.end_date|date:'Y-m-d' }}">до {{ item.end_date|date:"d.m" }}</time>
+              {% endif %}
             </a>
           {% empty %}
             <div class="empty-state">Акций пока нет.</div>
