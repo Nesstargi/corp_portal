@@ -7,32 +7,37 @@
 {% block content %}
   <section class="page-header">
     <div class="container page-layout">
-      <div>
-        <div class="meta">
-          {% if promotion.badge %}
-            <span class="chip chip--feature">{{ promotion.badge }}</span>
+      <div class="detail-header__content">
+        <div class="detail-header__copy reading-column">
+          <div class="meta">
+            {% if promotion.badge %}
+              <span class="chip chip--feature">{{ promotion.badge }}</span>
+            {% endif %}
+            {% if promotion.brand %}
+              <span>{{ promotion.brand }}</span>
+            {% endif %}
+            {% if promotion.category %}
+              <span>{{ promotion.category }}</span>
+            {% endif %}
+          </div>
+          <h1>{{ promotion.title }}</h1>
+          {% if promotion.card_summary %}
+            <p class="lead">{{ promotion.card_summary }}</p>
           {% endif %}
-          {% if promotion.brand %}
-            <span>{{ promotion.brand }}</span>
-          {% endif %}
-          {% if promotion.category %}
-            <span>{{ promotion.category }}</span>
-          {% endif %}
-        </div>
-        <h1>{{ promotion.title }}</h1>
-        {% if promotion.card_summary %}
-          <p class="lead">{{ promotion.card_summary }}</p>
-        {% endif %}
-        <div class="chips">
-          {% if promotion.start_date %}
-            <span class="chip">Старт: {{ promotion.start_date|date:"d.m.Y" }}</span>
-          {% endif %}
-          {% if promotion.end_date %}
-            <span class="chip">Окончание: {{ promotion.end_date|date:"d.m.Y" }}</span>
-          {% endif %}
-          {% if promotion.promo_code %}
-            <span class="chip">Промокод: {{ promotion.promo_code }}</span>
-          {% endif %}
+          <div class="chips">
+            {% if promotion.lifecycle_status == "upcoming" %}
+              <span class="chip chip--feature">Скоро начнётся</span>
+            {% endif %}
+            {% if promotion.start_date %}
+              <span class="chip">Старт: {{ promotion.start_date|date:"d.m.Y" }}</span>
+            {% endif %}
+            {% if promotion.end_date %}
+              <span class="chip">Окончание: {{ promotion.end_date|date:"d.m.Y" }}</span>
+            {% endif %}
+            {% if promotion.promo_code %}
+              <span class="chip">Промокод: {{ promotion.promo_code }}</span>
+            {% endif %}
+          </div>
         </div>
 
         {% if promotion.has_offer_highlight and not promotion.is_preorder %}
@@ -111,15 +116,21 @@
         {% endif %}
       </div>
 
-      <article class="card stream-content">
+      {% if promotion.cover_image %}
+        <figure class="promotion-detail-cover content-wide">
+          <img src="{{ promotion.cover_image.url }}" alt="{{ promotion.title }}" loading="eager" decoding="async" fetchpriority="high" />
+        </figure>
+      {% endif %}
+
+      <article class="card stream-content detail-content">
         {% if promotion.details %}
-          <div class="rich-copy">{{ promotion.details|safe }}</div>
+          <div class="rich-copy reading-column">{{ promotion.details|safe }}</div>
         {% endif %}
 
         {% if promotion.preorder_entries %}
-          <section class="content-block article-section">
+          <section class="content-block article-section content-wide">
             <h2>Заявки из таблицы</h2>
-            <div class="spec-table-wrap">
+            <div class="spec-table-wrap table-scroll-region">
               <table class="spec-table">
                 <thead>
                   <tr>
@@ -161,9 +172,9 @@
         {% endif %}
 
         {% if promotion.extra_data_items %}
-          <section class="content-block article-section">
+          <section class="content-block article-section content-wide">
             <h2>Дополнительные поля из таблицы</h2>
-            <div class="spec-table-wrap">
+            <div class="spec-table-wrap table-scroll-region">
               <table class="spec-table">
                 <tbody>
                   {% for key, value in promotion.extra_data_items %}
@@ -179,7 +190,7 @@
         {% endif %}
 
         {% if promotion.cta_url %}
-          <section class="content-block article-section">
+          <section class="content-block article-section reading-column">
             <div class="section-link-row">
               <a class="button" href="{{ promotion.cta_url }}" target="_blank" rel="noreferrer">
                 {{ promotion.cta_label|default:"Открыть акцию" }}

@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from django import forms
 from django.contrib import admin, messages
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html, strip_tags
 
@@ -11,8 +14,8 @@ from catalog.admin_mixins import (
 )
 from catalog.widgets import RichTextToolbarWidget
 
-from .models import Promotion, PromotionSource
-from .services import import_promotions_from_source
+from .models import Promotion, PromotionImportRun, PromotionSource
+from .services import import_promotions_from_source, preview_promotions_from_source
 
 
 class PromotionAdminForm(forms.ModelForm):
@@ -82,11 +85,22 @@ class PromotionAdminForm(forms.ModelForm):
             "Такие акции поднимаются выше в списке и считаются более приоритетными."
         )
         self.fields["is_published"].help_text = (
-            "Если выключить, акция останется в админке, но исчезнет с сайта."
+            "Главный переключатель публикации. Даже при включённом переключателе акция "
+            "не показывается после даты окончания."
+        )
+        self.fields["start_date"].help_text = (
+            "До этой даты акция считается будущей, но уже может отображаться в разделе «Акции»."
+        )
+        self.fields["end_date"].help_text = (
+            "Акция видна по эту дату включительно и автоматически исчезает с сайта на следующий день. "
+            "Оставляй поле пустым только для действительно бессрочной акции."
         )
         self.fields["sync_with_source"].help_text = (
-            "Если выключить, импорт из Google-таблицы больше не будет перезаписывать эту акцию."
+            "Импорт из Google-таблицы перезаписывает название, тип, цены, даты и публикацию. "
+            "Выключи синхронизацию перед ручной правкой этих данных."
         )
+        if not self.instance.pk:
+            self.fields["sync_with_source"].initial = False
 
     class Meta:
         model = Promotion
@@ -130,6 +144,22 @@ class PromotionAdminForm(forms.ModelForm):
         return cleaned_data
 
 
+def format_import_result(source, result, *, preview=False):
+    prefix = "Проверка: " if preview else ""
+    return (
+        f"{prefix}{source.name}: создано {result.created}, "
+        f"обновлено {result.updated}, "
+        f"пропущено {result.skipped}, "
+        f"дубликатов {result.duplicates}, "
+        f"снято с публикации {result.unpublished}."
+    )
+
+
+def show_import_warnings(request, source, result):
+    for warning in result.warnings:
+        messages.warning(request, f"{source.name}: {warning}")
+
+
 @admin.action(description="Импортировать акции из выбранных источников")
 def import_selected_sources(modeladmin, request, queryset):
     imported = 0
@@ -142,24 +172,65 @@ def import_selected_sources(modeladmin, request, queryset):
             continue
 
         imported += 1
-        messages.success(
-            request,
-            (
-                f"{source.name}: создано {result.created}, "
-                f"обновлено {result.updated}, "
-                f"пропущено {result.skipped}, "
-                f"снято с публикации {result.unpublished}."
-            ),
-        )
+        messages.success(request, format_import_result(source, result))
+        show_import_warnings(request, source, result)
 
     if not imported:
         messages.warning(request, "Импорт не был выполнен ни для одного источника.")
+
+
+@admin.action(description="Проверить импорт без сохранения")
+def preview_selected_sources(modeladmin, request, queryset):
+    checked = 0
+
+    for source in queryset:
+        try:
+            result = preview_promotions_from_source(source)
+        except Exception as exc:
+            messages.error(request, f"Проверка {source.name}: {exc}")
+            continue
+
+        checked += 1
+        messages.info(request, format_import_result(source, result, preview=True))
+        show_import_warnings(request, source, result)
+
+    if not checked:
+        messages.warning(request, "Проверка не была выполнена ни для одного источника.")
+
+
+class PromotionLifecycleFilter(admin.SimpleListFilter):
+    title = "Фактический статус"
+    parameter_name = "lifecycle"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("active", "Действует"),
+            ("upcoming", "Скоро начнётся"),
+            ("finished", "Завершена"),
+            ("hidden", "Скрыта вручную"),
+            ("open_ended", "Без даты окончания"),
+        )
+
+    def queryset(self, request, queryset):
+        today = timezone.localdate()
+        if self.value() == "active":
+            return queryset.filter(is_published=True).active_on(today)
+        if self.value() == "upcoming":
+            return queryset.filter(is_published=True).upcoming_on(today)
+        if self.value() == "finished":
+            return queryset.finished_before(today)
+        if self.value() == "hidden":
+            return queryset.filter(is_published=False).not_expired(today)
+        if self.value() == "open_ended":
+            return queryset.filter(end_date__isnull=True)
+        return queryset
 
 
 @admin.register(PromotionSource)
 class PromotionSourceAdmin(admin.ModelAdmin):
     list_display = (
         "name",
+        "import_health",
         "import_mode",
         "is_active",
         "last_imported_at",
@@ -168,8 +239,13 @@ class PromotionSourceAdmin(admin.ModelAdmin):
     )
     list_filter = ("is_active", "auto_publish_imported", "archive_missing_on_import")
     search_fields = ("name", "sheet_url")
-    actions = [import_selected_sources]
-    readonly_fields = ("import_url_preview", "last_imported_at", "last_import_error")
+    actions = [preview_selected_sources, import_selected_sources]
+    readonly_fields = (
+        "import_url_preview",
+        "import_history_link",
+        "last_imported_at",
+        "last_import_error",
+    )
     fieldsets = (
         (
             "Основная информация",
@@ -190,20 +266,35 @@ class PromotionSourceAdmin(admin.ModelAdmin):
                 ),
                 "description": (
                     "Для первого этапа таблица должна быть доступна по ссылке. "
-                    "Можно вставить обычную ссылку на Google Sheets или прямую CSV-ссылку."
+                    "Можно вставить обычную ссылку на Google Sheets или прямую CSV-ссылку. "
+                    "Для стабильного обновления строк рекомендуется колонка «ID» или «Код акции»."
                 ),
             },
         ),
         (
             "Как импортировать",
             {
-                "fields": ("auto_publish_imported", "archive_missing_on_import"),
+                "fields": (
+                    "auto_publish_imported",
+                    "archive_missing_on_import",
+                    "minimum_expected_rows",
+                    "max_missing_percent",
+                ),
+                "description": (
+                    "Перед первым импортом запустите действие «Проверить импорт без сохранения»: "
+                    "оно покажет дубликаты, конфликты и ожидаемые изменения. "
+                    "Защитные пороги останавливают подозрительно пустую или неполную выгрузку."
+                ),
             },
         ),
         (
             "Состояние импорта",
             {
-                "fields": ("last_imported_at", "last_import_error"),
+                "fields": (
+                    "import_history_link",
+                    "last_imported_at",
+                    "last_import_error",
+                ),
                 "classes": ("collapse",),
             },
         ),
@@ -213,11 +304,124 @@ class PromotionSourceAdmin(admin.ModelAdmin):
     def import_url_preview(self, obj):
         return obj.import_url if obj and obj.pk else "Появится после сохранения источника."
 
+    @admin.display(description="История запусков")
+    def import_history_link(self, obj):
+        if not obj or not obj.pk:
+            return "Появится после сохранения источника."
+        url = reverse("admin:promotions_promotionimportrun_changelist")
+        return format_html(
+            '<a href="{}?source__id__exact={}">Открыть историю этого источника</a>',
+            url,
+            obj.pk,
+        )
+
     @admin.display(description="Коротко об ошибке")
     def last_import_error_short(self, obj):
         if not obj.last_import_error:
             return "Ошибок нет"
         return obj.last_import_error[:60]
+
+    @admin.display(description="Состояние")
+    def import_health(self, obj):
+        if not obj.is_active:
+            css_class, label = "is-draft", "Отключён"
+        elif obj.last_import_error:
+            css_class, label = "is-finished", "Ошибка"
+        elif not obj.last_imported_at:
+            css_class, label = "is-upcoming", "Ещё не запускался"
+        elif obj.last_imported_at < timezone.now() - timedelta(hours=24):
+            css_class, label = "is-upcoming", "Давно не обновлялся"
+        else:
+            css_class, label = "is-live", "Работает"
+        return format_html(
+            '<span class="admin-status-badge {}">{}</span>',
+            css_class,
+            label,
+        )
+
+
+@admin.register(PromotionImportRun)
+class PromotionImportRunAdmin(admin.ModelAdmin):
+    list_display = (
+        "started_at",
+        "source",
+        "run_mode",
+        "status_badge",
+        "result_summary",
+        "duration_display",
+    )
+    list_filter = ("status", "is_dry_run", "source", "started_at")
+    search_fields = ("source__name", "error")
+    list_select_related = ("source",)
+    date_hierarchy = "started_at"
+    ordering = ("-started_at",)
+    readonly_fields = (
+        "source",
+        "is_dry_run",
+        "status",
+        "created_count",
+        "updated_count",
+        "skipped_count",
+        "unpublished_count",
+        "duplicate_count",
+        "warnings",
+        "error",
+        "started_at",
+        "finished_at",
+        "duration_display",
+    )
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = {
+            **(extra_context or {}),
+            "title": "История импорта акций",
+        }
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.display(description="Режим")
+    def run_mode(self, obj):
+        return "Проверка" if obj.is_dry_run else "Импорт"
+
+    @admin.display(description="Статус")
+    def status_badge(self, obj):
+        styles = {
+            PromotionImportRun.STATUS_RUNNING: ("is-upcoming", "Выполняется"),
+            PromotionImportRun.STATUS_SUCCESS: ("is-live", "Успешно"),
+            PromotionImportRun.STATUS_ERROR: ("is-finished", "Ошибка"),
+        }
+        css_class, label = styles[obj.status]
+        return format_html(
+            '<span class="admin-status-badge {}">{}</span>',
+            css_class,
+            label,
+        )
+
+    @admin.display(description="Результат")
+    def result_summary(self, obj):
+        if obj.status == PromotionImportRun.STATUS_ERROR:
+            return obj.error[:80] or "Ошибка без описания"
+        if obj.status == PromotionImportRun.STATUS_RUNNING:
+            return "Ожидание завершения"
+        return (
+            f"+{obj.created_count} / ~{obj.updated_count} / "
+            f"−{obj.unpublished_count}; пропущено {obj.skipped_count}"
+        )
+
+    @admin.display(description="Длительность")
+    def duration_display(self, obj):
+        seconds = obj.duration_seconds
+        if seconds is None:
+            return "—"
+        return f"{seconds:.2f} с"
 
 
 @admin.register(Promotion)
@@ -250,9 +454,11 @@ class PromotionAdmin(
         },
     )
     quick_filters = (
-        {"label": "Все", "key": "is_published__exact", "value": ""},
-        {"label": "Опубликованные", "key": "is_published__exact", "value": "1"},
-        {"label": "Скрытые", "key": "is_published__exact", "value": "0"},
+        {"label": "Все", "key": "lifecycle", "value": ""},
+        {"label": "Действуют", "key": "lifecycle", "value": "active"},
+        {"label": "Скоро", "key": "lifecycle", "value": "upcoming"},
+        {"label": "Завершены", "key": "lifecycle", "value": "finished"},
+        {"label": "Скрытые", "key": "lifecycle", "value": "hidden"},
         {"label": "Скидка", "key": "promotion_kind__exact", "value": "promo_price"},
         {"label": "Подарок", "key": "promotion_kind__exact", "value": "gift"},
         {"label": "Без изображения", "key": "cover_image__isnull", "value": "True"},
@@ -261,6 +467,7 @@ class PromotionAdmin(
     list_display = (
         "cover_thumb",
         "title",
+        "lifecycle_badge",
         "promotion_kind",
         "badge",
         "brand",
@@ -275,6 +482,7 @@ class PromotionAdmin(
     )
     list_display_links = ("title",)
     list_filter = (
+        PromotionLifecycleFilter,
         "promotion_kind",
         "is_published",
         "is_featured",
@@ -310,6 +518,7 @@ class PromotionAdmin(
         "imported_at",
         "source",
         "source_row_key",
+        "lifecycle_badge",
     )
     actions = (
         "set_kind_promo_price",
@@ -318,6 +527,7 @@ class PromotionAdmin(
         "clear_kind",
         "publish_selected",
         "unpublish_selected",
+        "unpublish_finished_selected",
         "duplicate_selected",
     )
     fieldsets = (
@@ -370,6 +580,7 @@ class PromotionAdmin(
                     "cta_url",
                     "is_featured",
                     "is_published",
+                    "lifecycle_badge",
                     "public_link",
                     "duplicate_link",
                     "history_link",
@@ -451,6 +662,33 @@ class PromotionAdmin(
             level=messages.SUCCESS,
         )
 
+    @admin.display(description="Фактический статус")
+    def lifecycle_badge(self, obj):
+        statuses = {
+            "active": ("is-live", "Действует"),
+            "upcoming": ("is-upcoming", "Скоро начнётся"),
+            "finished": ("is-finished", "Завершена"),
+            "hidden": ("is-draft", "Скрыта вручную"),
+        }
+        css_class, label = statuses[obj.lifecycle_status]
+        return format_html(
+            '<span class="admin-status-badge {}">{}</span>',
+            css_class,
+            label,
+        )
+
+    @admin.display(description="Ссылка")
+    def public_link(self, obj):
+        if not getattr(obj, "pk", None):
+            return "Сначала сохрани запись."
+        if obj.lifecycle_status == "finished":
+            return "Срок завершён — на сайте скрыта."
+        if obj.lifecycle_status == "hidden":
+            return "Публикация выключена."
+        if obj.is_preorder:
+            return "Предзаказы не показываются в разделе акций."
+        return super().public_link(obj)
+
     @admin.action(description="Назначить тип: промоцена / скидка")
     def set_kind_promo_price(self, request, queryset):
         self._set_promotion_kind(
@@ -474,13 +712,30 @@ class PromotionAdmin(
 
     @admin.action(description="Опубликовать выбранные акции")
     def publish_selected(self, request, queryset):
-        updated = queryset.update(is_published=True)
+        today = timezone.localdate()
+        finished = queryset.finished_before(today).count()
+        updated = queryset.not_expired(today).update(is_published=True)
         self.message_user(request, f"Опубликовано акций: {updated}.", level=messages.SUCCESS)
+        if finished:
+            self.message_user(
+                request,
+                f"Завершённые акции не опубликованы: {finished}. Сначала продли дату окончания.",
+                level=messages.WARNING,
+            )
 
     @admin.action(description="Скрыть выбранные акции")
     def unpublish_selected(self, request, queryset):
         updated = queryset.update(is_published=False)
         self.message_user(request, f"Скрыто акций: {updated}.", level=messages.SUCCESS)
+
+    @admin.action(description="Снять с публикации выбранные завершённые акции")
+    def unpublish_finished_selected(self, request, queryset):
+        updated = queryset.finished_before().filter(is_published=True).update(is_published=False)
+        self.message_user(
+            request,
+            f"Снято с публикации завершённых акций: {updated}.",
+            level=messages.SUCCESS,
+        )
 
     @admin.action(description="Создать копии выбранных акций")
     def duplicate_selected(self, request, queryset):

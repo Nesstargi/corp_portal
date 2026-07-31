@@ -5,27 +5,30 @@
 {% endblock %}
 
 {% block content %}
-  <section class="page-header">
+  <section class="page-header page-header--compact">
     <div class="container">
-      <span class="eyebrow">База знаний</span>
-      <h1>Материалы базы знаний</h1>
-      <p class="lead">Инструкции, товарные карточки, обзоры и скрипты продаж. Фильтруй по бренду, категории и фишкам товара.</p>
+      <div class="page-intro">
+        <h1>Материалы базы знаний</h1>
+        <p class="lead">Инструкции, товарные карточки, обзоры и скрипты продаж.</p>
+      </div>
 
       <details
         class="filter-panel"
         data-filter-panel
-        data-has-active-filters="{% if selected_brand or selected_category or selected_feature %}true{% else %}false{% endif %}"
-        open
+        data-has-active-filters="{% if has_active_filters %}true{% else %}false{% endif %}"
       >
         <summary class="filter-panel__summary">
-          <span>Фильтры</span>
+          <span class="filter-panel__title">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.5 7.2V19l-3 1v-7.8z" /></svg>
+            Фильтры
+          </span>
           <span class="filter-panel__state" aria-hidden="true"></span>
         </summary>
 
         <form class="filters" method="get">
           <div class="filter-field">
             <label for="brand">Бренд</label>
-            <select id="brand" name="brand">
+            <select class="form-control" id="brand" name="brand">
               <option value="">Все бренды</option>
               {% for brand in brands %}
                 <option value="{{ brand.slug }}" {% if selected_brand == brand.slug %}selected{% endif %}>{{ brand.name }}</option>
@@ -34,7 +37,7 @@
           </div>
           <div class="filter-field">
             <label for="category">Категория</label>
-            <select id="category" name="category">
+            <select class="form-control" id="category" name="category">
               <option value="">Все категории</option>
               {% for category in product_categories %}
                 <option value="{{ category.slug }}" {% if selected_category == category.slug %}selected{% endif %}>{{ category.name }}</option>
@@ -43,60 +46,64 @@
           </div>
           <div class="filter-field">
             <label for="feature">Фишка товара</label>
-            <select id="feature" name="feature">
+            <select class="form-control" id="feature" name="feature">
               <option value="">Все фишки</option>
               {% for feature in feature_tags %}
                 <option value="{{ feature.slug }}" {% if selected_feature == feature.slug %}selected{% endif %}>{{ feature.name }}</option>
               {% endfor %}
             </select>
           </div>
-          <button class="button" type="submit">Применить</button>
-          <a class="button button--ghost" href="{% url 'learning_list' %}">Сбросить</a>
+          <div class="filters__actions">
+            <button class="button" type="submit">Применить</button>
+            <a class="button button--ghost" href="{% url 'learning_list' %}">Сбросить</a>
+          </div>
         </form>
       </details>
 
+      <div class="result-summary" aria-live="polite">
+        <p class="result-count">Найдено: <strong>{{ result_count }}</strong></p>
+        {% if active_filter_items %}
+          <div class="active-filters">
+            <span class="active-filters__label">Активные фильтры:</span>
+            {% for item in active_filter_items %}
+              <span class="active-filter">{{ item.label }}: {{ item.value }}</span>
+            {% endfor %}
+            <a class="active-filters__reset" href="{% url 'learning_list' %}">Сбросить все</a>
+          </div>
+        {% endif %}
+      </div>
     </div>
   </section>
 
-  <section class="section">
+  <section class="section section--results">
     <div class="container">
-      <div class="section-copy section-copy--split">
-        <div>
-          <span class="eyebrow">База знаний</span>
-          <h2>Подборка материалов</h2>
-        </div>
-        <p class="lead">Карточки собраны так, чтобы быстро открыть нужный материал и не потеряться в деталях.</p>
-      </div>
-      <div class="grid grid--three">
+      <h2 class="section-title">Материалы</h2>
+      <div class="grid grid--three result-grid">
         {% for item in materials %}
           <a class="card-link learning-card-link" href="{% url 'learning_detail' item.pk %}">
             <article class="card learning-card">
-              <div
-                class="learning-card__cover{% if item.cover_image %} learning-card__cover--image{% endif %}"
+              <div class="learning-card__cover{% if not item.cover_image %} learning-card__cover--placeholder{% endif %}">
                 {% if item.cover_image %}
-                  style="--cover-image: url('{{ item.cover_image.url }}');"
+                  <img src="{{ item.cover_image.url }}" alt="" loading="lazy" decoding="async" />
+                {% else %}
+                  <span aria-hidden="true">БЗ</span>
                 {% endif %}
-              >
-                <div class="learning-card__cover-top">
-                  <span class="learning-card__type">{{ item.get_material_type_display }}</span>
-                  <span class="learning-card__open">Открыть</span>
-                </div>
               </div>
-
               <div class="learning-card__body">
+                <div class="card-kind">{{ item.get_material_type_display }}</div>
                 <h3>{{ item.title }}</h3>
                 {% with preview_text=item.summary|default:item.product_short_summary|default:item.product_full_description|default:item.content|striptags|truncatechars:180 %}
                   <p class="learning-card__excerpt">{{ preview_text }}</p>
                 {% endwith %}
                 {% if item.feature_tags.all or item.brands.all or item.categories.all %}
                   <div class="chips learning-card__chips">
-                    {% for tag in item.feature_tags.all %}
+                    {% for tag in item.feature_tags.all|slice:":2" %}
                       <span class="chip chip--feature">{{ tag.name }}</span>
                     {% endfor %}
-                    {% for brand in item.brands.all %}
+                    {% for brand in item.brands.all|slice:":2" %}
                       <span class="chip">{{ brand.name }}</span>
                     {% endfor %}
-                    {% for category in item.categories.all %}
+                    {% for category in item.categories.all|slice:":2" %}
                       <span class="chip">{{ category.name }}</span>
                     {% endfor %}
                   </div>
@@ -105,9 +112,10 @@
             </article>
           </a>
         {% empty %}
-          <div class="empty-state">Материалов по выбранным фильтрам пока нет.</div>
+          <div class="empty-state empty-state--wide">Материалов по выбранным фильтрам пока нет.</div>
         {% endfor %}
       </div>
+      {% include "includes/pagination.html" %}
     </div>
   </section>
 {% endblock %}

@@ -1,0 +1,17 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  <div id="content-main">
+    <p>
+      Будет создана неопубликованная копия записи «{{ original }}».
+      Исходная запись не изменится.
+    </p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="submit-row">
+        <input type="submit" value="Создать копию" class="default">
+        <a href="{{ change_url }}" class="closelink">Отмена</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

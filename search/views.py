@@ -6,18 +6,6 @@ from news.models import News
 from promotions.models import Promotion
 
 
-def _block_items_match_query(material, query):
-    normalized_query = query.casefold()
-
-    for block in material.blocks.all():
-        for item in block.structured_items:
-            for value in item.values():
-                if normalized_query in str(value or "").casefold():
-                    return True
-
-    return False
-
-
 def search(request):
     search_query = request.GET.get("query", "").strip()
     news_results = News.objects.none()
@@ -39,8 +27,7 @@ def search(request):
             .distinct()
         )
         promotion_results = (
-            Promotion.objects.filter(is_published=True)
-            .exclude(promotion_kind=Promotion.KIND_PREORDER)
+            Promotion.objects.visible_on_site()
             .filter(
                 Q(title__icontains=search_query)
                 | Q(summary__icontains=search_query)
@@ -64,6 +51,7 @@ def search(request):
                 | Q(blocks__text__icontains=search_query)
                 | Q(blocks__title__icontains=search_query)
                 | Q(blocks__caption__icontains=search_query)
+                | Q(blocks__items_text__icontains=search_query)
                 | Q(product_features__title__icontains=search_query)
                 | Q(product_features__description__icontains=search_query)
                 | Q(product_features__client_pitch__icontains=search_query)
@@ -77,17 +65,6 @@ def search(request):
             )
             .distinct()
         )
-        structured_match_ids = [
-            material.pk
-            for material in LearningMaterial.objects.filter(is_published=True).prefetch_related("blocks")
-            if _block_items_match_query(material, search_query)
-        ]
-        if structured_match_ids:
-            learning_result_ids = set(learning_results.values_list("pk", flat=True))
-            learning_result_ids.update(structured_match_ids)
-            learning_results = LearningMaterial.objects.filter(
-                pk__in=learning_result_ids
-            ).distinct()
         total_results = (
             news_results.count()
             + promotion_results.count()

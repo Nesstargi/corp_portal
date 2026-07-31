@@ -1,16 +1,16 @@
 {% if related_content %}
-  <section class="section">
+  <section class="section related-content" aria-labelledby="related-content-title">
     <div class="container">
-      <div class="section-copy">
+      <div class="section-copy related-content__intro reading-column">
         <span class="eyebrow">Что ещё посмотреть</span>
-        <h2>Связанные материалы</h2>
+        <h2 id="related-content-title">Связанные материалы</h2>
         <p class="lead">Собрали рядом похожие новости, материалы базы знаний и акции по тем же брендам, категориям и фишкам.</p>
       </div>
 
-      <div class="grid grid--three">
+      <div class="grid grid--three related-content__grid">
         {% for item in related_content %}
-          <a class="card-link" href="{{ item.url }}">
-            <article class="card related-card simple-card">
+          <a class="card-link related-content__link" href="{{ item.url }}">
+            <article class="card related-card simple-card related-content__card">
               <div class="meta related-card__meta">
                 <span class="chip chip--feature">{{ item.label }}</span>
                 {% if item.meta %}

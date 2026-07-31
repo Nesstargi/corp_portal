@@ -123,11 +123,11 @@
       ],
     },
     sales_script: {
-      sectionTitle: "Скрипты внутри блока",
+      sectionTitle: "Скрипты и возражения внутри блока",
       emptyLabel:
-        "Добавляй готовые формулировки, которые продавец сможет быстро использовать в разговоре.",
-      addLabel: "Добавить ещё скрипт",
-      itemLabel: "Скрипт",
+        "Добавляй готовые формулировки, ответы на возражения и короткие сценарии разговора.",
+      addLabel: "Добавить ещё скрипт или возражение",
+      itemLabel: "Скрипт / возражение",
       cardModifier: "learning-block-items__card--script",
       fields: [
         {
@@ -137,9 +137,9 @@
           multiline: false,
         },
         {
-          key: "pitch",
-          label: "Как проговаривать",
-          placeholder: "Напиши готовую фразу или короткий сценарий разговора.",
+          key: "description",
+          label: "Краткое описание или готовый ответ",
+          placeholder: "Напиши короткий сценарий или готовый ответ на возражение.",
           multiline: true,
           rows: 4,
         },
@@ -182,6 +182,8 @@
   var categoryCharacteristicMapCache = null;
   var allCharacteristicsCache = null;
   var adminConfigCache = null;
+  var blockSchemaCache = null;
+  var categoryCharacteristicsRequestKey = "";
 
   function setSectionVisibility(selector, hidden) {
     document.querySelectorAll(selector).forEach(function (section) {
@@ -281,6 +283,39 @@
     return adminConfigCache;
   }
 
+  function getBlockSchema() {
+    if (blockSchemaCache !== null) {
+      return blockSchemaCache;
+    }
+    blockSchemaCache = readJsonScript("learning-block-schema", {});
+    return blockSchemaCache;
+  }
+
+  function getBlockDefinition(blockType) {
+    return getBlockSchema()[blockType] || null;
+  }
+
+  function getVisibleBlockFields(blockType) {
+    var definition = getBlockDefinition(blockType);
+    if (definition && Array.isArray(definition.visibleFields)) {
+      return definition.visibleFields;
+    }
+    return BLOCK_TYPE_FIELDS[blockType] || BLOCK_TYPE_FIELDS.text;
+  }
+
+  function getBlockCopy(blockType) {
+    var definition = getBlockDefinition(blockType);
+    if (definition) {
+      return {
+        titleLabel: definition.titleLabel,
+        titleHelp: definition.titleHelp,
+        captionLabel: definition.captionLabel,
+        captionHelp: definition.captionHelp,
+      };
+    }
+    return BLOCK_FIELD_COPY[blockType] || BLOCK_FIELD_COPY.text;
+  }
+
   function getSelectedCategoryIds() {
     var selectedValues = [];
     var selectedBox = document.getElementById("id_categories_to");
@@ -336,6 +371,71 @@
     });
   }
 
+  function mergeCategoryCharacteristicMap(nextMap) {
+    var currentMap = getCategoryCharacteristicMap();
+    Object.keys(nextMap || {}).forEach(function (categoryId) {
+      currentMap[String(categoryId)] = nextMap[categoryId] || [];
+    });
+  }
+
+  function loadCategoryCharacteristicsForSelected(callback) {
+    var adminConfig = getAdminConfig();
+    var url = adminConfig.categoryCharacteristicsUrl;
+    var selectedCategoryIds = getSelectedCategoryIds();
+    var categoryMap = getCategoryCharacteristicMap();
+    var missingCategoryIds = selectedCategoryIds.filter(function (categoryId) {
+      return !Object.prototype.hasOwnProperty.call(categoryMap, String(categoryId));
+    });
+
+    if (!url || !missingCategoryIds.length || !window.fetch) {
+      if (callback) {
+        callback();
+      }
+      return;
+    }
+
+    var requestKey = missingCategoryIds.slice().sort().join(",");
+    if (categoryCharacteristicsRequestKey === requestKey) {
+      if (callback) {
+        window.setTimeout(callback, 0);
+      }
+      return;
+    }
+    categoryCharacteristicsRequestKey = requestKey;
+
+    var query = missingCategoryIds
+      .map(function (categoryId) {
+        return "category=" + encodeURIComponent(categoryId);
+      })
+      .join("&");
+
+    fetch(url + (url.indexOf("?") === -1 ? "?" : "&") + query, {
+      credentials: "same-origin",
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+      },
+    })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error("Unable to load category characteristics.");
+        }
+        return response.json();
+      })
+      .then(function (payload) {
+        mergeCategoryCharacteristicMap(payload.categoryCharacteristics || {});
+        if (Array.isArray(payload.allCharacteristics)) {
+          allCharacteristicsCache = payload.allCharacteristics;
+        }
+      })
+      .catch(function () {})
+      .finally(function () {
+        categoryCharacteristicsRequestKey = "";
+        if (callback) {
+          callback();
+        }
+      });
+  }
+
   function escapeHtml(value) {
     return String(value || "")
       .replace(/&/g, "&amp;")
@@ -378,13 +478,21 @@
         return fallback;
       }
 
-      var models = Array.isArray(parsed.models)
-        ? parsed.models
-            .map(function (model) {
-              return String(model || "").trim();
-            })
-            .filter(Boolean)
+      var rawModels = Array.isArray(parsed.models)
+        ? parsed.models.map(function (model) {
+            return String(model || "").trim();
+          })
         : [];
+      var modelIndexes = rawModels
+        .map(function (model, index) {
+          return model ? index : -1;
+        })
+        .filter(function (index) {
+          return index >= 0;
+        });
+      var models = modelIndexes.map(function (index) {
+        return rawModels[index];
+      });
       if (!models.length) {
         models = fallback.models.slice();
       }
@@ -394,8 +502,8 @@
             var values = Array.isArray(row.values) ? row.values : [];
             return {
               parameter: String(row.parameter || "").trim(),
-              values: models.map(function (_model, index) {
-                return String(values[index] || "").trim();
+              values: modelIndexes.map(function (sourceIndex) {
+                return String(values[sourceIndex] || "").trim();
               }),
             };
           })
@@ -444,7 +552,9 @@
 
       var rawHeaders = Array.isArray(parsed.headers) ? parsed.headers : [];
       var headers = [0, 1].map(function (index) {
-        return String(rawHeaders[index] || fallback.headers[index]).trim();
+        return index < rawHeaders.length
+          ? String(rawHeaders[index] || "").trim()
+          : fallback.headers[index];
       });
       var rows = Array.isArray(parsed.rows)
         ? parsed.rows.map(function (row) {
@@ -610,7 +720,7 @@
 
   function updateFieldCopy(row) {
     var blockType = getBlockType(row);
-    var copy = BLOCK_FIELD_COPY[blockType] || BLOCK_FIELD_COPY.text;
+    var copy = getBlockCopy(blockType);
 
     [
       {
@@ -1111,24 +1221,35 @@
       return;
     }
 
-    var models = [];
-    editor.querySelectorAll("[data-comparison-model-name]").forEach(function (field) {
+    var modelEntries = [];
+    editor.querySelectorAll("[data-comparison-model-name]").forEach(function (field, index) {
       var name = String(field.value || "").trim();
       if (name) {
-        models.push(name);
+        modelEntries.push({
+          name: name,
+          sourceIndex: Number(field.dataset.comparisonModelName || index),
+        });
       }
     });
 
-    if (!models.length) {
-      models = ["Модель 1", "Модель 2"];
+    if (!modelEntries.length) {
+      modelEntries = [
+        { name: "Товар 1", sourceIndex: 0 },
+        { name: "Товар 2", sourceIndex: 1 },
+      ];
     }
+    var models = modelEntries.map(function (entry) {
+      return entry.name;
+    });
 
     var rows = [];
     editor.querySelectorAll("[data-comparison-row]").forEach(function (rowElement) {
       var rowIndex = Number(rowElement.dataset.comparisonRow || 0);
       var parameterInput = rowElement.querySelector("[data-comparison-parameter]");
-      var values = models.map(function (_model, modelIndex) {
-        var cell = rowElement.querySelector('[data-comparison-cell="' + rowIndex + ":" + modelIndex + '"]');
+      var values = modelEntries.map(function (entry) {
+        var cell = rowElement.querySelector(
+          '[data-comparison-cell="' + rowIndex + ":" + entry.sourceIndex + '"]'
+        );
         return cell ? String(cell.value || "").trim() : "";
       });
       var parameter = parameterInput ? String(parameterInput.value || "").trim() : "";
@@ -1177,7 +1298,7 @@
   function removeComparisonModel(row, modelIndex) {
     var input = getStructuredItemsInput(row);
     var table = parseComparisonTable(input);
-    if (table.models.length <= 1) {
+    if (table.models.length <= 2) {
       return;
     }
 
@@ -1263,6 +1384,14 @@
     }
 
     var items = parseItems(input);
+    if (blockType === "sales_script") {
+      items = items.map(function (item) {
+        if (!item.description && item.pitch) {
+          return Object.assign({}, item, { description: item.pitch });
+        }
+        return item;
+      });
+    }
     if (!items.length) {
       items = [{}];
       writeItems(input, items);
@@ -1635,24 +1764,193 @@
   }
 
   function updateSpecificationBlocksFromCategories() {
-    getBlockInlineRows().forEach(function (row) {
-      if (getBlockType(row) !== "specification") {
-        return;
-      }
+    loadCategoryCharacteristicsForSelected(function () {
+      getBlockInlineRows().forEach(function (row) {
+        if (getBlockType(row) !== "specification") {
+          return;
+        }
 
-      var input = getStructuredItemsInput(row);
-      if (!input) {
-        return;
-      }
+        var input = getStructuredItemsInput(row);
+        if (!input) {
+          return;
+        }
 
-      var items = parseItems(input);
-      if (!isSpecificationItemsEmpty(items)) {
+        var items = parseItems(input);
+        if (!isSpecificationItemsEmpty(items)) {
+          renderItemsEditor(row);
+          return;
+        }
+
+        ensureSpecificationItemsSeeded(row);
         renderItemsEditor(row);
+      });
+    });
+  }
+
+  function getActiveBlockRows() {
+    return Array.prototype.slice.call(getBlockInlineRows()).filter(function (row) {
+      if (row.classList.contains("empty-form") || row.classList.contains("is-removed")) {
+        return false;
+      }
+      var deleteInput = row.querySelector('input[id$="-DELETE"]');
+      return !deleteInput || !deleteInput.checked;
+    });
+  }
+
+  function updateBlockEmptyState() {
+    var emptyState = document.querySelector("[data-learning-editor-empty]");
+    if (emptyState) {
+      emptyState.classList.toggle("is-hidden", getActiveBlockRows().length > 0);
+    }
+  }
+
+  function getNextBlockOrder() {
+    return getActiveBlockRows().reduce(function (maxOrder, row) {
+      var input = getSortOrderInput(row);
+      return Math.max(maxOrder, Number(input && input.value ? input.value : 0));
+    }, 0) + 10;
+  }
+
+  function updateBlockHeading(row) {
+    var heading = Array.prototype.find.call(row.children, function (child) {
+      return child.tagName === "H3";
+    });
+    if (!heading) {
+      return;
+    }
+
+    var rows = getActiveBlockRows();
+    var rowIndex = rows.indexOf(row);
+    var type = getBlockType(row);
+    var definition = getBlockDefinition(type);
+    var typeSelect = row.querySelector('select[id$="-block_type"]');
+    var selectedOption = typeSelect && typeSelect.options[typeSelect.selectedIndex];
+    var label = definition
+      ? definition.label
+      : selectedOption
+        ? String(selectedOption.text || "").replace(/\s+—\s+старый блок$/, "")
+        : "Блок";
+    var prefix = heading.querySelector("b");
+    var inlineLabel = heading.querySelector(".inline_label");
+
+    if (prefix) {
+      prefix.textContent = rowIndex >= 0 ? String(rowIndex + 1) + "." : "";
+    }
+    if (inlineLabel) {
+      inlineLabel.textContent = label;
+    }
+
+    if (!heading.querySelector("[data-toggle-learning-block]")) {
+      var collapseButton = document.createElement("button");
+      collapseButton.type = "button";
+      collapseButton.className = "learning-editor-block__collapse";
+      collapseButton.dataset.toggleLearningBlock = "true";
+      collapseButton.setAttribute("aria-expanded", "true");
+      collapseButton.setAttribute("aria-label", "Свернуть блок");
+      collapseButton.innerHTML =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 14 5-5 5 5" /></svg>';
+      var deleteControl = heading.querySelector(".delete");
+      heading.insertBefore(collapseButton, deleteControl || null);
+    }
+  }
+
+  function addLearningBlock(blockType) {
+    var group = document.getElementById("blocks-group") || document.querySelector(".learning-editor-blocks .inline-group");
+    var addLink = group ? group.querySelector(".add-row a") : null;
+    if (!addLink) {
+      window.alert("Не удалось добавить блок. Обновите страницу и попробуйте ещё раз.");
+      return;
+    }
+
+    var rowsBefore = Array.prototype.slice.call(getBlockInlineRows());
+    var nextOrder = getNextBlockOrder();
+    addLink.click();
+
+    window.setTimeout(function () {
+      var rowsAfter = getActiveBlockRows();
+      var newRow =
+        rowsAfter.find(function (row) {
+          return rowsBefore.indexOf(row) === -1;
+        }) || rowsAfter[rowsAfter.length - 1];
+      if (!newRow) {
         return;
       }
 
-      ensureSpecificationItemsSeeded(row);
-      renderItemsEditor(row);
+      var typeSelect = newRow.querySelector('select[id$="-block_type"]');
+      var sortInput = getSortOrderInput(newRow);
+      if (typeSelect) {
+        typeSelect.value = blockType;
+        typeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      if (sortInput) {
+        sortInput.value = String(nextOrder);
+      }
+
+      updateBlockRow(newRow);
+      syncBlockRows();
+      updateBlockEmptyState();
+
+      var focusTarget =
+        newRow.querySelector("[data-editor-surface]") ||
+        newRow.querySelector('[data-block-item-field="title"]') ||
+        newRow.querySelector('input[type="file"]') ||
+        newRow.querySelector('input[type="url"]') ||
+        newRow.querySelector('input[id$="-title"]');
+      if (focusTarget) {
+        focusTarget.focus();
+      }
+      if (newRow.scrollIntoView) {
+        newRow.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 0);
+  }
+
+  function setupEditorWorkflow() {
+    var steps = Array.prototype.slice.call(document.querySelectorAll("[data-editor-step]"));
+    var sections = Array.prototype.slice.call(document.querySelectorAll("[data-editor-section]"));
+    if (!steps.length || !sections.length) {
+      return;
+    }
+
+    function activateStep(key) {
+      steps.forEach(function (step) {
+        step.classList.toggle("is-active", step.dataset.editorStep === key);
+      });
+    }
+
+    steps.forEach(function (step) {
+      step.addEventListener("click", function () {
+        activateStep(step.dataset.editorStep);
+      });
+    });
+
+    if ("IntersectionObserver" in window) {
+      var observer = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              activateStep(entry.target.dataset.editorSection);
+            }
+          });
+        },
+        { rootMargin: "-25% 0px -60% 0px", threshold: 0 }
+      );
+      sections.forEach(function (section) {
+        observer.observe(section);
+      });
+    }
+  }
+
+  function setupMaterialSaveButtons() {
+    document.querySelectorAll("[data-material-save-state]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var publishedField = document.getElementById("id_is_published");
+        if (!publishedField) {
+          return;
+        }
+        publishedField.checked = button.dataset.materialSaveState === "published";
+        publishedField.dispatchEvent(new Event("change", { bubbles: true }));
+      });
     });
   }
 
@@ -1661,7 +1959,7 @@
       return;
     }
 
-    var visibleFields = new Set(BLOCK_TYPE_FIELDS[getBlockType(row)] || ["text"]);
+    var visibleFields = new Set(getVisibleBlockFields(getBlockType(row)) || ["text"]);
 
     BLOCK_FIELD_NAMES.forEach(function (fieldName) {
       var field = findFieldContainer(row, fieldName);
@@ -1674,10 +1972,12 @@
     updateFieldCopy(row);
     renderItemsEditor(row);
     renderInstructionStepTools(row);
+    updateBlockHeading(row);
   }
 
   function syncBlockRows() {
     getBlockInlineRows().forEach(updateBlockRow);
+    updateBlockEmptyState();
   }
 
   function bindCategoryChangeHandlers() {
@@ -1758,6 +2058,25 @@
   });
 
   document.addEventListener("click", function (event) {
+    var paletteButton =
+      event.target && event.target.closest && event.target.closest("[data-add-learning-block]");
+    if (paletteButton) {
+      event.preventDefault();
+      addLearningBlock(paletteButton.dataset.addLearningBlock);
+      return;
+    }
+
+    var collapseButton =
+      event.target && event.target.closest && event.target.closest("[data-toggle-learning-block]");
+    if (collapseButton) {
+      event.preventDefault();
+      var collapseRow = collapseButton.closest(".inline-related");
+      var collapsed = collapseRow.classList.toggle("is-collapsed");
+      collapseButton.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      collapseButton.setAttribute("aria-label", collapsed ? "Развернуть блок" : "Свернуть блок");
+      return;
+    }
+
     var addNextInstructionButton =
       event.target &&
       event.target.closest &&
@@ -1837,7 +2156,10 @@
   document.addEventListener("DOMContentLoaded", function () {
     toggleLearningMode();
     syncBlockRows();
+    loadCategoryCharacteristicsForSelected(syncBlockRows);
     bindCategoryChangeHandlers();
+    setupEditorWorkflow();
+    setupMaterialSaveButtons();
 
     var groups = [
       document.getElementById("blocks-group"),

@@ -7,7 +7,7 @@
 {% block content %}
   <section class="page-header">
     <div class="container page-layout">
-      <div>
+      <div class="detail-header__content reading-column">
         <div class="meta">
           <span>{{ material.get_material_type_display }}</span>
         </div>
@@ -31,14 +31,14 @@
       </div>
 
       {% if material.cover_image %}
-        <div class="page-cover">
-          <img src="{{ material.cover_image.url }}" alt="{{ material.title }}" />
+        <div class="page-cover content-wide">
+          <img src="{{ material.cover_image.url }}" alt="{{ material.title }}" loading="eager" decoding="async" fetchpriority="high" />
         </div>
       {% endif %}
 
       {% with toc_blocks=material.toc_blocks %}
         {% if toc_blocks %}
-          <nav class="material-toc" aria-label="Оглавление материала">
+          <nav class="material-toc detail-toc reading-column" aria-label="Оглавление материала">
             <div class="material-toc__title">Оглавление</div>
             <div class="material-toc__links">
               {% for toc_block in toc_blocks %}
@@ -49,30 +49,35 @@
         {% endif %}
       {% endwith %}
 
-      <article class="card stream-content">
+      <article class="card stream-content detail-content">
         {% if material.material_type == "product" %}
           {% if material.blocks.all %}
-            {% include "learning/includes/learning_blocks.html" %}
+            {% include "learning/includes/block_list.html" with blocks=material.blocks.all %}
           {% endif %}
 
           {% if material.has_structured_product_content %}
-          {% if material.product_full_description %}
-            <section class="content-block article-section">
-              <h2>Полное описание</h2>
-              <div class="rich-copy">{{ material.product_full_description|safe }}</div>
-            </section>
-          {% endif %}
+            {% if material.content %}
+              <section class="content-block article-section reading-column">
+                <div class="rich-copy">{{ material.content|safe }}</div>
+              </section>
+            {% endif %}
+            {% if material.product_full_description %}
+              <section class="content-block article-section reading-column">
+                <h2>Полное описание</h2>
+                <div class="rich-copy">{{ material.product_full_description|safe }}</div>
+              </section>
+            {% endif %}
 
           {% with description_images=material.product_description_images.all %}
             {% if description_images %}
-              <section class="content-block article-section">
+              <section class="content-block article-section content-wide">
                 {% if description_images|length > 1 %}
                   <div class="image-slider" data-image-slider data-active-index="0">
                     <div class="image-slider__viewport">
                       <div class="image-slider__track" data-slider-track>
                         {% for image in description_images %}
                           <figure class="image-slider__slide" data-slide aria-hidden="{% if not forloop.first %}true{% else %}false{% endif %}">
-                            <img src="{{ image.image.url }}" alt="{{ image.caption|default:material.title }}" />
+                            <img src="{{ image.image.url }}" alt="{{ image.caption|default:material.title }}" loading="lazy" decoding="async" />
                             {% if image.caption %}
                               <figcaption class="meta">{{ image.caption }}</figcaption>
                             {% endif %}
@@ -91,7 +96,7 @@
                 {% else %}
                   {% for image in description_images %}
                     <figure class="article-image article-image--single">
-                      <img src="{{ image.image.url }}" alt="{{ image.caption|default:material.title }}" />
+                      <img src="{{ image.image.url }}" alt="{{ image.caption|default:material.title }}" loading="lazy" decoding="async" />
                       {% if image.caption %}
                         <figcaption class="meta">{{ image.caption }}</figcaption>
                       {% endif %}
@@ -103,7 +108,7 @@
           {% endwith %}
 
           {% if material.product_video_review_url %}
-            <section class="content-block article-section">
+            <section class="content-block article-section content-wide">
               <h2>Видеообзор</h2>
               {% if material.product_video_embed_url %}
                 <div class="video-embed">
@@ -123,7 +128,7 @@
           {% endif %}
 
           {% if material.product_text_review %}
-            <section class="content-block article-section">
+            <section class="content-block article-section reading-column">
               <h2>Обзор текстом</h2>
               <div class="rich-copy">{{ material.product_text_review|safe }}</div>
             </section>
@@ -131,14 +136,14 @@
 
           {% with review_images=material.product_review_images.all %}
             {% if review_images %}
-              <section class="content-block article-section">
+              <section class="content-block article-section content-wide">
                 {% if review_images|length > 1 %}
                   <div class="image-slider" data-image-slider data-active-index="0">
                     <div class="image-slider__viewport">
                       <div class="image-slider__track" data-slider-track>
                         {% for image in review_images %}
                           <figure class="image-slider__slide" data-slide aria-hidden="{% if not forloop.first %}true{% else %}false{% endif %}">
-                            <img src="{{ image.image.url }}" alt="{{ image.caption|default:material.title }}" />
+                            <img src="{{ image.image.url }}" alt="{{ image.caption|default:material.title }}" loading="lazy" decoding="async" />
                             {% if image.caption %}
                               <figcaption class="meta">{{ image.caption }}</figcaption>
                             {% endif %}
@@ -157,7 +162,7 @@
                 {% else %}
                   {% for image in review_images %}
                     <figure class="article-image article-image--single">
-                      <img src="{{ image.image.url }}" alt="{{ image.caption|default:material.title }}" />
+                      <img src="{{ image.image.url }}" alt="{{ image.caption|default:material.title }}" loading="lazy" decoding="async" />
                       {% if image.caption %}
                         <figcaption class="meta">{{ image.caption }}</figcaption>
                       {% endif %}
@@ -169,7 +174,7 @@
           {% endwith %}
 
           {% if material.product_features.all %}
-            <section class="content-block article-section">
+            <section class="content-block article-section reading-column">
               <h2>Фишки и как преподносить клиенту</h2>
               <div class="article-stack">
                 {% for feature in material.product_features.all %}
@@ -194,7 +199,7 @@
           {% endif %}
 
           {% if material.product_sales_scripts.all %}
-            <section class="content-block article-section">
+            <section class="content-block article-section reading-column">
               <h2>Скрипты продаж</h2>
               <div class="article-stack">
                 {% for script in material.product_sales_scripts.all %}
@@ -208,9 +213,9 @@
           {% endif %}
 
           {% if material.product_specifications.all %}
-            <section class="content-block article-section">
+            <section class="content-block article-section content-wide">
               <h2>Характеристики</h2>
-              <div class="spec-table-wrap">
+              <div class="spec-table-wrap table-scroll-region">
                 <table class="spec-table">
                   <tbody>
                     {% for spec in material.product_specifications.all %}
@@ -226,7 +231,7 @@
           {% endif %}
 
           {% if material.product_short_summary %}
-            <section class="content-block article-section">
+            <section class="content-block article-section reading-column">
               <h2>Краткое резюмирование</h2>
               <div class="rich-copy">{{ material.product_short_summary|safe }}</div>
             </section>

@@ -6,8 +6,9 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from django.forms.models import BaseInlineFormSet
 from django.forms.widgets import ClearableFileInput
+from django.http import HttpResponseRedirect, JsonResponse
 from django.template.response import TemplateResponse
-from django.urls import reverse
+from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.html import format_html_join
 from django.utils.html import strip_tags
@@ -34,6 +35,14 @@ from .models import (
     LearningBlockGalleryImage,
     LearningMaterial,
     PresentationImport,
+)
+from .block_schema import (
+    ADMIN_BLOCK_TYPE_KEYS,
+    BLOCK_TYPE_DEFINITIONS,
+    block_has_content,
+    get_admin_block_schema,
+    get_block_empty_message,
+    normalize_block_items_data,
 )
 from .presentation_import import (
     PresentationImportError,
@@ -68,12 +77,14 @@ class LearningMaterialAdminForm(forms.ModelForm):
         self.fields["summary"].label = "Краткое описание"
         self.fields["summary"].help_text = "Показывается в списке базы знаний и на главной странице."
         self.fields["material_type"].label = "Формат материала"
-        self.fields["brands"].label = "Бренды"
-        self.fields["categories"].label = "Категории товаров"
-        self.fields["feature_tags"].label = "Фишки товаров"
+        self.fields["brands"].label = "Бренд"
+        self.fields["categories"].label = "Категория товара"
+        self.fields["feature_tags"].label = "Метки"
         self.fields["feature_tags"].help_text = (
-            "Например: работает с Алисой, самоочистка, тихий режим, быстрая зарядка."
+            "Метки помогают находить и связывать материалы. Например: самоочистка или быстрая зарядка."
         )
+        if not self.instance.pk:
+            self.fields["is_published"].initial = False
 
     def clean(self):
         cleaned_data = super().clean()
@@ -154,14 +165,24 @@ class LearningBlockAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        admin_choices = [
+            (key, BLOCK_TYPE_DEFINITIONS[key]["label"])
+            for key in ADMIN_BLOCK_TYPE_KEYS
+        ]
+        current_type = str(getattr(self.instance, "block_type", "") or "")
+        if self.instance.pk and current_type not in ADMIN_BLOCK_TYPE_KEYS:
+            legacy_labels = dict(LearningBlock.BLOCK_TYPE_CHOICES)
+            admin_choices.append(
+                (current_type, f"{legacy_labels.get(current_type, current_type)} — старый блок")
+            )
+        self.fields["block_type"].choices = admin_choices
+        self.fields["block_type"].label = "Тип блока"
         self.fields["title"].label = "Заголовок секции"
         self.fields["title"].help_text = (
             "Необязательно. Например: Фишки модели, Скрипты продаж, Ключевые характеристики."
         )
         self.fields["caption"].label = "Короткая подпись"
-        self.fields["caption"].help_text = (
-            "Используется для изображений, видео, цитат и файлов. Для фишек и характеристик не нужна."
-        )
+        self.fields["caption"].help_text = "Необязательное пояснение под медиа или таблицей."
         self.fields["text"].help_text = (
             "Основной текст для обычного текстового блока или цитаты."
         )
@@ -170,77 +191,11 @@ class LearningBlockAdminForm(forms.ModelForm):
             "Для фишек, скриптов продаж, характеристик и таблиц ниже появится удобный редактор."
         )
         self.fields["video_url"].help_text = "Вставь ссылку на видеообзор или ролик."
-        self.fields["document"].help_text = "Прикрепи PDF, инструкцию, прайс или другой файл."
 
     def clean_items_data(self):
         items_data = self.cleaned_data.get("items_data") or []
         block_type = self.cleaned_data.get("block_type") or self.instance.block_type
 
-        if block_type == "table":
-            if not isinstance(items_data, dict):
-                return {"headers": [], "rows": []}
-
-            raw_headers = items_data.get("headers") or []
-            if not isinstance(raw_headers, list):
-                raw_headers = []
-            headers = [
-                str(raw_headers[index] or "").strip()
-                if index < len(raw_headers)
-                else ""
-                for index in range(2)
-            ]
-            rows = []
-
-            for row in items_data.get("rows", []):
-                if not isinstance(row, dict):
-                    continue
-
-                left = str(row.get("left") or "").strip()
-                right = str(row.get("right") or "").strip()
-                if left or right:
-                    rows.append({"left": left, "right": right})
-
-            return {"headers": headers, "rows": rows}
-
-        if block_type == "comparison_table":
-            if not isinstance(items_data, dict):
-                return {"models": [], "rows": []}
-
-            models = [
-                str(model or "").strip()
-                for model in items_data.get("models", [])
-                if str(model or "").strip()
-            ]
-            rows = []
-            for row in items_data.get("rows", []):
-                if not isinstance(row, dict):
-                    continue
-
-                parameter = str(row.get("parameter") or "").strip()
-                raw_values = row.get("values") or []
-                if not isinstance(raw_values, list):
-                    raw_values = []
-                values = [
-                    str(raw_values[index] or "").strip()
-                    if index < len(raw_values)
-                    else ""
-                    for index in range(len(models))
-                ]
-
-                if parameter or any(values):
-                    rows.append(
-                        {
-                            "parameter": parameter,
-                            "values": values,
-                        }
-                    )
-
-            return {"models": models, "rows": rows}
-
-        if not isinstance(items_data, list):
-            return []
-
-        cleaned_items = []
         characteristic_name_map = {}
 
         if block_type == "specification":
@@ -256,48 +211,11 @@ class LearningBlockAdminForm(forms.ModelForm):
                     )
                 )
 
-        for item in items_data:
-            if not isinstance(item, dict):
-                continue
-
-            normalized = {key: str(item.get(key) or "").strip() for key in item}
-
-            if block_type == "feature":
-                if normalized.get("title") or normalized.get("description") or normalized.get("pitch"):
-                    cleaned_items.append(
-                        {
-                            "title": normalized.get("title", ""),
-                            "description": normalized.get("description", ""),
-                            "pitch": normalized.get("pitch", ""),
-                        }
-                    )
-            elif block_type == "sales_script":
-                if normalized.get("title") or normalized.get("pitch"):
-                    cleaned_items.append(
-                        {
-                            "title": normalized.get("title", ""),
-                            "pitch": normalized.get("pitch", ""),
-                        }
-                    )
-            elif block_type == "specification":
-                characteristic_id = normalized.get("characteristic_id", "")
-                characteristic_name = (
-                    characteristic_name_map.get(int(characteristic_id))
-                    if characteristic_id.isdigit()
-                    else ""
-                ) or ""
-
-                if characteristic_name or normalized.get("name") or normalized.get("value"):
-                    cleaned_items.append(
-                        {
-                            "sort_order": normalized.get("sort_order", ""),
-                            "characteristic_id": characteristic_id,
-                            "name": characteristic_name or normalized.get("name", ""),
-                            "value": normalized.get("value", ""),
-                        }
-                    )
-
-        return cleaned_items
+        return normalize_block_items_data(
+            block_type,
+            items_data,
+            characteristic_name_map=characteristic_name_map,
+        )
 
 class LearningBlockInlineFormSet(BaseInlineFormSet):
     def save(self, commit=True):
@@ -348,10 +266,10 @@ class LearningBlockInline(admin.StackedInline):
     model = LearningBlock
     form = LearningBlockAdminForm
     formset = LearningBlockInlineFormSet
-    extra = 1
+    extra = 0
     classes = ("section-general-blocks",)
-    verbose_name = "Блок страницы"
-    verbose_name_plural = "Блоки страницы"
+    verbose_name = "Блок"
+    verbose_name_plural = "Содержимое материала"
     readonly_fields = ("gallery_preview",)
     fieldsets = (
         (
@@ -443,35 +361,7 @@ class LearningMaterialAdmin(
     form = LearningMaterialAdminForm
     change_form_template = "admin/learning/learningmaterial/change_form.html"
     image_recommendation = (1600, 900)
-    template_presets = (
-        {
-            "key": "product",
-            "label": "Создать: товарный материал",
-            "initial": {
-                "material_type": "product",
-                "title": "Новый товарный материал",
-                "summary": "Короткое описание товара для карточки.",
-            },
-        },
-        {
-            "key": "process",
-            "label": "Создать: процесс",
-            "initial": {
-                "material_type": "process",
-                "title": "Новый процесс",
-                "summary": "Коротко опиши, чему посвящён материал.",
-            },
-        },
-        {
-            "key": "instruction",
-            "label": "Создать: инструкция",
-            "initial": {
-                "material_type": "instruction",
-                "title": "Новая инструкция",
-                "summary": "Коротко опиши, что сотрудник найдёт внутри.",
-            },
-        },
-    )
+    template_presets = ()
     quick_filters = (
         {"label": "Все", "key": "is_published__exact", "value": ""},
         {"label": "Опубликованные", "key": "is_published__exact", "value": "1"},
@@ -508,10 +398,12 @@ class LearningMaterialAdmin(
         "created_at",
         "updated_at",
     )
-    filter_horizontal = (
+    autocomplete_fields = (
         "brands",
         "categories",
         "feature_tags",
+    )
+    filter_horizontal = (
         "telegram_target_groups",
         "telegram_target_subscribers",
         "telegram_target_group_chats",
@@ -534,7 +426,6 @@ class LearningMaterialAdmin(
                     "summary",
                     "material_type",
                     ("cover_image", "cover_preview"),
-                    "card_preview",
                 ),
                 "classes": ("article-section", "section-preview"),
                 "description": (
@@ -566,11 +457,11 @@ class LearningMaterialAdmin(
             },
         ),
         (
-            "Бренды, категории и фишки",
+            "Связи материала",
             {
                 "fields": (
-                    "brands",
                     "categories",
+                    "brands",
                     "feature_tags",
                 ),
                 "classes": ("article-section", "section-links"),
@@ -590,6 +481,192 @@ class LearningMaterialAdmin(
             "all": ("css/learning-product-admin.css", "css/admin-enhancements.css"),
         }
         js = ("js/admin-enhancements.js", "js/learning-product-admin.js")
+
+    def get_urls(self):
+        custom_urls = [
+            path(
+                "category-characteristics/",
+                self.admin_site.admin_view(self.category_characteristics_view),
+                name="learning_learningmaterial_category_characteristics",
+            ),
+        ]
+        return custom_urls + super().get_urls()
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related(
+            "feature_tags",
+        )
+
+    @staticmethod
+    def _truthy_text(value):
+        return bool(strip_tags(str(value or "")).strip())
+
+    @staticmethod
+    def _clean_id_values(values):
+        cleaned = []
+        for value in values or []:
+            value = str(value or "").strip()
+            if value.isdigit():
+                cleaned.append(value)
+        return cleaned
+
+    def _form_value(self, form, obj, field_name):
+        if form and field_name in form.fields:
+            value = form[field_name].value()
+            if value not in (None, ""):
+                return value
+        return getattr(obj, field_name, "") if obj else ""
+
+    def _form_m2m_ids(self, form, obj, field_name):
+        if form and field_name in form.fields:
+            value = form[field_name].value()
+            if value:
+                return self._clean_id_values(value if isinstance(value, (list, tuple)) else [value])
+
+        if obj and obj.pk:
+            return [str(pk) for pk in getattr(obj, field_name).values_list("pk", flat=True)]
+
+        return []
+
+    def _selected_category_ids(self, request, obj, form):
+        posted_ids = self._clean_id_values(request.POST.getlist("categories"))
+        if posted_ids:
+            return posted_ids
+        return self._form_m2m_ids(form, obj, "categories")
+
+    def _build_category_characteristics_map(self, category_ids):
+        category_ids = self._clean_id_values(category_ids)
+        if not category_ids:
+            return {}
+
+        category_characteristics_map = {}
+        for link in (
+            ProductCategoryCharacteristic.objects.select_related("characteristic")
+            .filter(category_id__in=category_ids)
+            .order_by("category_id", "sort_order", "characteristic__name")
+        ):
+            category_characteristics_map.setdefault(str(link.category_id), []).append(
+                {
+                    "id": link.characteristic_id,
+                    "name": link.characteristic.name,
+                    "sort_order": link.sort_order,
+                }
+            )
+        return category_characteristics_map
+
+    def category_characteristics_view(self, request):
+        category_ids = self._clean_id_values(
+            [
+                *request.GET.getlist("category"),
+                *request.GET.get("categories", "").split(","),
+            ]
+        )
+        return JsonResponse(
+            {
+                "categoryCharacteristics": self._build_category_characteristics_map(category_ids),
+                "allCharacteristics": list(
+                    ProductCharacteristic.objects.order_by("name").values("id", "name")
+                ),
+            }
+        )
+
+    def _material_has_any_links(self, form, obj):
+        return any(
+            self._form_m2m_ids(form, obj, field_name)
+            for field_name in ("brands", "categories", "areas", "feature_tags")
+        )
+
+    def _material_blocks(self, obj):
+        if not obj or not obj.pk:
+            return []
+        return list(obj.blocks.prefetch_related("gallery_images").all())
+
+    def _material_has_legacy_content(self, form, obj):
+        return any(
+            self._truthy_text(self._form_value(form, obj, field_name))
+            for field_name in (
+                "content",
+                "product_full_description",
+                "product_text_review",
+                "product_short_summary",
+                "product_video_review_url",
+            )
+        )
+
+    def _build_admin_steps(self, form, obj):
+        title_ready = self._truthy_text(self._form_value(form, obj, "title"))
+        summary_ready = self._truthy_text(self._form_value(form, obj, "summary"))
+        links_ready = self._material_has_any_links(form, obj)
+        blocks = self._material_blocks(obj)
+        content_ready = any(block_has_content(block) for block in blocks) or self._material_has_legacy_content(form, obj)
+        publication_ready = bool(self._form_value(form, obj, "is_published"))
+
+        raw_steps = (
+            ("Карточка", title_ready and summary_ready),
+            ("Связи", links_ready),
+            ("Содержимое", content_ready),
+            ("Публикация", publication_ready),
+        )
+        first_pending_seen = False
+        steps = []
+        for index, (label, is_done) in enumerate(raw_steps, start=1):
+            status = "done" if is_done else "pending"
+            if not is_done and not first_pending_seen:
+                status = "active"
+                first_pending_seen = True
+            steps.append({"number": index, "label": label, "status": status})
+        return steps
+
+    def _build_readiness_checks(self, form, obj):
+        material_type = self._form_value(form, obj, "material_type")
+        title_ready = self._truthy_text(self._form_value(form, obj, "title"))
+        summary_ready = self._truthy_text(self._form_value(form, obj, "summary"))
+        categories_ready = bool(self._form_m2m_ids(form, obj, "categories"))
+        links_ready = self._material_has_any_links(form, obj)
+        blocks = self._material_blocks(obj)
+        empty_blocks = [block for block in blocks if not block_has_content(block)]
+        content_ready = bool(blocks and len(empty_blocks) < len(blocks)) or self._material_has_legacy_content(form, obj)
+        cover_ready = bool(self._form_value(form, obj, "cover_image"))
+
+        checks = [
+            {
+                "label": "Карточка заполнена",
+                "ok": title_ready and summary_ready,
+                "hint": "Нужны название и краткое описание для списка материалов.",
+            },
+            {
+                "label": "Связи выбраны",
+                "ok": categories_ready if material_type == "product" else links_ready,
+                "hint": (
+                    "Для товарного материала обязательна категория; для остальных полезны тема, бренд или метка."
+                    if material_type == "product"
+                    else "Добавь тему, бренд, категорию или фишку, чтобы материал легче находился."
+                ),
+            },
+            {
+                "label": "Содержимое добавлено",
+                "ok": content_ready,
+                "hint": "Добавь хотя бы один заполненный блок страницы.",
+            },
+            {
+                "label": "Пустые блоки проверены",
+                "ok": not empty_blocks,
+                "hint": (
+                    "; ".join(
+                        f"{block.title or block.get_block_type_display()}: {get_block_empty_message(block)}"
+                        for block in empty_blocks[:3]
+                    )
+                    or "Все блоки выглядят заполненными."
+                ),
+            },
+            {
+                "label": "Обложка добавлена",
+                "ok": cover_ready,
+                "hint": "Обложка не обязательна, но карточка в списке выглядит заметнее.",
+                "optional": True,
+            },
+        ]
+        return checks
 
     @admin.display(description="Как будет выглядеть карточка")
     def card_preview(self, obj):
@@ -763,21 +840,16 @@ class LearningMaterialAdmin(
         inline_admin_formsets = context.get("inline_admin_formsets", [])
 
         if adminform:
-            category_characteristics_map = {}
-            for link in (
-                ProductCategoryCharacteristic.objects.select_related("characteristic")
-                .order_by("category_id", "sort_order", "characteristic__name")
-            ):
-                category_characteristics_map.setdefault(str(link.category_id), []).append(
-                    {
-                        "id": link.characteristic_id,
-                        "name": link.characteristic.name,
-                        "sort_order": link.sort_order,
-                    }
-                )
+            form = adminform.form
+            selected_category_ids = self._selected_category_ids(request, obj, form)
 
             context.update(
                 {
+                    "learning_block_schema": get_admin_block_schema(),
+                    "learning_block_palette": [
+                        {"key": key, "label": BLOCK_TYPE_DEFINITIONS[key]["label"]}
+                        for key in ADMIN_BLOCK_TYPE_KEYS
+                    ],
                     "preview_fieldset": self._find_fieldset(adminform, "section-preview"),
                     "material_mode_fieldset": self._find_fieldset(
                         adminform, "section-material-mode"
@@ -789,11 +861,16 @@ class LearningMaterialAdmin(
                     "general_blocks_inline": self._find_inline(
                         inline_admin_formsets, "section-general-blocks"
                     ),
-                    "category_characteristics_map": category_characteristics_map,
+                    "category_characteristics_map": self._build_category_characteristics_map(
+                        selected_category_ids
+                    ),
                     "all_product_characteristics": list(
                         ProductCharacteristic.objects.order_by("name").values("id", "name")
                     ),
                     "product_characteristic_add_url": reverse("admin:catalog_productcharacteristic_add"),
+                    "category_characteristics_url": reverse(
+                        "admin:learning_learningmaterial_category_characteristics"
+                    ),
                 }
             )
 
@@ -884,8 +961,8 @@ class LearningMaterialAdmin(
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
 
-@admin.register(PresentationImport)
 class PresentationImportAdmin(admin.ModelAdmin):
+    change_form_template = "admin/learning/presentationimport/change_form.html"
     list_display = (
         "title_or_file",
         "material_link",
@@ -956,7 +1033,18 @@ class PresentationImportAdmin(admin.ModelAdmin):
             return
 
         try:
-            self._create_material_from_presentation(obj)
+            slides = self._extract_slides(obj)
+            if "_preview_import" in request.POST:
+                obj.import_report = self._build_import_preview_report(obj, slides)
+                obj.save(update_fields=["import_report", "updated_at"])
+                self.message_user(
+                    request,
+                    "Предварительный разбор презентации готов. Проверь отчет и сохрани еще раз, чтобы создать материал.",
+                    level=messages.INFO,
+                )
+                return
+
+            self._create_material_from_presentation(obj, slides=slides)
         except PresentationImportError as exc:
             obj.import_report = str(exc)
             obj.save(update_fields=["import_report", "updated_at"])
@@ -969,8 +1057,22 @@ class PresentationImportAdmin(admin.ModelAdmin):
             level=messages.SUCCESS,
         )
 
-    def _create_material_from_presentation(self, obj, replace_existing=False):
-        slides = extract_pptx_slides(
+    def response_add(self, request, obj, post_url_continue=None):
+        if "_preview_import" in request.POST:
+            return HttpResponseRedirect(
+                reverse("admin:learning_presentationimport_change", args=[obj.pk])
+            )
+        return super().response_add(request, obj, post_url_continue=post_url_continue)
+
+    def response_change(self, request, obj):
+        if "_preview_import" in request.POST:
+            return HttpResponseRedirect(
+                reverse("admin:learning_presentationimport_change", args=[obj.pk])
+            )
+        return super().response_change(request, obj)
+
+    def _extract_slides(self, obj):
+        return extract_pptx_slides(
             obj.presentation.path,
             enable_ocr=settings.PRESENTATION_OCR_ENABLED,
             ocr_languages=settings.PRESENTATION_OCR_LANGUAGES,
@@ -978,6 +1080,33 @@ class PresentationImportAdmin(admin.ModelAdmin):
             ocr_tesseract_cmd=settings.PRESENTATION_OCR_TESSERACT_CMD,
             ocr_tessdata_dir=settings.PRESENTATION_OCR_TESSDATA_DIR,
         )
+
+    def _build_import_preview_report(self, obj, slides):
+        lines = [
+            f"Предварительный разбор презентации «{obj.resolved_title}».",
+            f"Слайдов с содержимым: {len(slides)}.",
+            f"Изображений: {sum(len(slide.images) for slide in slides)}.",
+            f"Слайдов с распознанным текстом: {sum(1 for slide in slides if slide.ocr_paragraphs)}.",
+            "",
+            "Что будет создано:",
+        ]
+        for slide in slides[:12]:
+            parts = []
+            if slide.paragraphs:
+                parts.append(f"текстовых абзацев: {len(slide.paragraphs)}")
+            if slide.images:
+                parts.append(f"изображений: {len(slide.images)}")
+            if slide.ocr_paragraphs:
+                parts.append(f"OCR-абзацев: {len(slide.ocr_paragraphs)}")
+            lines.append(f"- Слайд {slide.number}: {slide.title} ({', '.join(parts) or 'без блоков'})")
+
+        if len(slides) > 12:
+            lines.append(f"- Еще слайдов: {len(slides) - 12}.")
+
+        return "\n".join(lines)
+
+    def _create_material_from_presentation(self, obj, replace_existing=False, slides=None):
+        slides = slides or self._extract_slides(obj)
 
         with transaction.atomic():
             if replace_existing and obj.material_id:

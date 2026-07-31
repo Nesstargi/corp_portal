@@ -9,16 +9,48 @@
         CorpPortal
       {% endblock %}
     </title>
+    <script src="{% static 'js/public-theme-switcher.js' %}?v=20260717-2"></script>
     <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/public-theme.css' %}?v=20260717-2" />
   </head>
   <body class="site-shell">
     <a class="skip-link" href="#main-content">Перейти к содержимому</a>
     <header class="site-header">
       <div class="container site-header__inner">
         <div class="site-brand">
-          <a class="logo" href="{% url 'home' %}">CorpPortal</a>
+          <a class="logo" href="{% url 'home' %}" aria-label="CorpPortal — главная">
+            <span class="logo__mark" aria-hidden="true">C</span>
+            <span class="logo__word">CorpPortal</span>
+          </a>
           <p class="logo-subtitle">Новости, акции и внутренняя база знаний</p>
         </div>
+        <nav class="nav" id="primary-navigation" aria-label="Основная навигация" data-nav-drawer>
+          <div class="nav__drawer-header">
+            <span>Меню</span>
+            <button class="nav__close" type="button" aria-label="Закрыть меню" data-nav-close>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            </button>
+          </div>
+          <a href="{% url 'home' %}"{% if request.resolver_match.url_name == 'home' %} class="is-active" aria-current="page"{% endif %}>Главная</a>
+          <a href="{% url 'news_list' %}"{% if request.resolver_match.url_name == 'news_list' or request.resolver_match.url_name == 'news_detail' %} class="is-active" aria-current="page"{% endif %}>Новости</a>
+          <a href="{% url 'promotion_list' %}"{% if request.resolver_match.url_name == 'promotion_list' or request.resolver_match.url_name == 'promotion_detail' %} class="is-active" aria-current="page"{% endif %}>Акции</a>
+          <a href="{% url 'learning_list' %}"{% if request.resolver_match.url_name == 'learning_list' or request.resolver_match.url_name == 'learning_detail' or request.resolver_match.url_name == 'learning_compare' or request.resolver_match.url_name == 'learning_quiz_detail' %} class="is-active" aria-current="page"{% endif %}>База знаний</a>
+        </nav>
+        <a class="header-search{% if request.resolver_match.url_name == 'search' %} is-active{% endif %}" href="{% url 'search' %}"{% if request.resolver_match.url_name == 'search' %} aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg>
+          <span>Поиск</span>
+        </a>
+        <button
+          class="site-theme-toggle"
+          type="button"
+          aria-label="Включить корпоративный стиль"
+          aria-pressed="false"
+          title="Включить корпоративный стиль"
+          data-theme-toggle
+        >
+          <span class="site-theme-toggle__icon" aria-hidden="true"></span>
+          <span class="site-theme-toggle__label" data-theme-toggle-label>Классический стиль</span>
+        </button>
         <button
           class="nav-toggle"
           type="button"
@@ -31,16 +63,6 @@
           <span class="nav-toggle__line"></span>
           <span class="nav-toggle__line"></span>
         </button>
-        <nav class="nav" id="primary-navigation" aria-label="Основная навигация" data-nav-drawer>
-          <div class="nav__drawer-header">
-            <span>Меню</span>
-            <button class="nav__close" type="button" aria-label="Закрыть меню" data-nav-close>&times;</button>
-          </div>
-          <a href="{% url 'home' %}"{% if request.resolver_match.url_name == 'home' %} class="is-active" aria-current="page"{% endif %}>Главная</a>
-          <a href="{% url 'news_list' %}"{% if request.resolver_match.url_name == 'news_list' or request.resolver_match.url_name == 'news_detail' %} class="is-active" aria-current="page"{% endif %}>Новости</a>
-          <a href="{% url 'promotion_list' %}"{% if request.resolver_match.url_name == 'promotion_list' or request.resolver_match.url_name == 'promotion_detail' %} class="is-active" aria-current="page"{% endif %}>Акции</a>
-          <a href="{% url 'learning_list' %}"{% if request.resolver_match.url_name == 'learning_list' or request.resolver_match.url_name == 'learning_detail' or request.resolver_match.url_name == 'learning_compare' or request.resolver_match.url_name == 'learning_quiz_detail' %} class="is-active" aria-current="page"{% endif %}>База знаний</a>
-        </nav>
       </div>
     </header>
     <button class="nav-backdrop" type="button" aria-label="Закрыть меню" data-nav-backdrop></button>
@@ -51,11 +73,11 @@
 
     <footer class="footer">
       <div class="container footer__inner">
-        <p>Внутренний корпоративный портал</p>
+        <p>© CorpPortal · Внутренний корпоративный портал</p>
       </div>
     </footer>
-    <script src="{% static 'js/site-slider.js' %}"></script>
-    <script src="{% static 'js/mobile-filters.js' %}"></script>
-    <script src="{% static 'js/mobile-navigation.js' %}"></script>
+    <script src="{% static 'js/site-slider.js' %}?v=20260711-2"></script>
+    <script src="{% static 'js/mobile-filters.js' %}?v=20260711-2"></script>
+    <script src="{% static 'js/mobile-navigation.js' %}?v=20260717-1"></script>
   </body>
 </html>

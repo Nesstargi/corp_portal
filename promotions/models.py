@@ -3,7 +3,10 @@ from datetime import datetime
 import re
 from urllib.parse import parse_qs, urlencode, urlparse
 
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator
 from django.db import models
+from django.db.models import F, Q
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import strip_tags
@@ -62,7 +65,28 @@ class PromotionSource(models.Model):
     )
     archive_missing_on_import = models.BooleanField(
         "Снимать с публикации пропавшие из таблицы акции",
-        default=False,
+        default=True,
+        help_text=(
+            "Рекомендуется включить: если строку удалили из таблицы, связанная акция "
+            "останется в админке, но исчезнет с сайта."
+        ),
+    )
+    minimum_expected_rows = models.PositiveIntegerField(
+        "Минимум распознанных акций",
+        default=1,
+        help_text=(
+            "Импорт будет остановлен, если после проверки останется меньше акций. "
+            "Защищает от пустой или повреждённой выгрузки; укажите 0, если пустой источник допустим."
+        ),
+    )
+    max_missing_percent = models.PositiveSmallIntegerField(
+        "Максимум пропавших акций за один импорт, %",
+        default=50,
+        validators=[MaxValueValidator(100)],
+        help_text=(
+            "Если за один запуск пропадёт большая доля ранее импортированных акций, "
+            "синхронизация остановится до ручной проверки. Значение 100 отключает эту защиту."
+        ),
     )
     last_imported_at = models.DateTimeField(
         "Последний успешный импорт",
@@ -127,6 +151,96 @@ class PromotionSource(models.Model):
         if self.import_mode == self.IMPORT_MODE_LAST_WORKSHEETS:
             return self.xlsx_url
         return self.csv_url
+
+
+class PromotionImportRun(models.Model):
+    STATUS_RUNNING = "running"
+    STATUS_SUCCESS = "success"
+    STATUS_ERROR = "error"
+    STATUS_CHOICES = (
+        (STATUS_RUNNING, "Выполняется"),
+        (STATUS_SUCCESS, "Успешно"),
+        (STATUS_ERROR, "Ошибка"),
+    )
+
+    source = models.ForeignKey(
+        PromotionSource,
+        related_name="import_runs",
+        on_delete=models.CASCADE,
+        verbose_name="Источник",
+    )
+    is_dry_run = models.BooleanField("Проверка без сохранения", default=False)
+    status = models.CharField(
+        "Статус",
+        max_length=16,
+        choices=STATUS_CHOICES,
+        default=STATUS_RUNNING,
+    )
+    created_count = models.PositiveIntegerField("Создано", default=0)
+    updated_count = models.PositiveIntegerField("Обновлено", default=0)
+    skipped_count = models.PositiveIntegerField("Пропущено", default=0)
+    unpublished_count = models.PositiveIntegerField("Снято с публикации", default=0)
+    duplicate_count = models.PositiveIntegerField("Дубликатов", default=0)
+    warnings = models.JSONField("Предупреждения", default=list, blank=True)
+    error = models.TextField("Ошибка", blank=True)
+    started_at = models.DateTimeField("Запущено", auto_now_add=True)
+    finished_at = models.DateTimeField("Завершено", blank=True, null=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+        verbose_name = "Запуск импорта акций"
+        verbose_name_plural = "История импорта акций"
+        indexes = (
+            models.Index(
+                fields=["source", "-started_at"],
+                name="promo_run_source_time",
+            ),
+        )
+
+    def __str__(self):
+        mode = "проверка" if self.is_dry_run else "импорт"
+        return f"{self.source}: {mode} — {self.get_status_display()}"
+
+    @property
+    def duration_seconds(self):
+        if not self.finished_at:
+            return None
+        return max((self.finished_at - self.started_at).total_seconds(), 0)
+
+
+class PromotionQuerySet(models.QuerySet):
+    """Единые правила жизненного цикла акций для всех публичных страниц."""
+
+    def not_expired(self, on_date=None):
+        on_date = on_date or timezone.localdate()
+        return self.filter(Q(end_date__isnull=True) | Q(end_date__gte=on_date))
+
+    def visible_on_site(self, on_date=None, *, include_upcoming=True):
+        on_date = on_date or timezone.localdate()
+        queryset = (
+            self.filter(is_published=True)
+            .exclude(promotion_kind="preorder")
+            .not_expired(on_date)
+        )
+        if not include_upcoming:
+            queryset = queryset.filter(
+                Q(start_date__isnull=True) | Q(start_date__lte=on_date)
+            )
+        return queryset
+
+    def active_on(self, on_date=None):
+        on_date = on_date or timezone.localdate()
+        return self.not_expired(on_date).filter(
+            Q(start_date__isnull=True) | Q(start_date__lte=on_date)
+        )
+
+    def upcoming_on(self, on_date=None):
+        on_date = on_date or timezone.localdate()
+        return self.not_expired(on_date).filter(start_date__gt=on_date)
+
+    def finished_before(self, on_date=None):
+        on_date = on_date or timezone.localdate()
+        return self.filter(end_date__lt=on_date)
 
 
 class Promotion(models.Model):
@@ -207,16 +321,35 @@ class Promotion(models.Model):
     created_at = models.DateTimeField("Создано", auto_now_add=True)
     updated_at = models.DateTimeField("Обновлено", auto_now=True)
 
+    objects = PromotionQuerySet.as_manager()
+
     class Meta:
         ordering = ["sort_order", "-is_featured", "title"]
         verbose_name = "Акция"
         verbose_name_plural = "Акции"
+        constraints = (
+            models.CheckConstraint(
+                condition=(
+                    Q(start_date__isnull=True)
+                    | Q(end_date__isnull=True)
+                    | Q(end_date__gte=F("start_date"))
+                ),
+                name="promotion_valid_date_range",
+            ),
+        )
 
     def __str__(self):
         return self.title
 
     def get_absolute_url(self):
         return reverse("promotion_detail", args=[self.slug])
+
+    def clean(self):
+        super().clean()
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError(
+                {"end_date": "Дата окончания не может быть раньше даты начала."}
+            )
 
     @staticmethod
     def _build_unique_catalog_slug(model, value):
@@ -280,6 +413,18 @@ class Promotion(models.Model):
         return bool(self.end_date and self.end_date < today)
 
     @property
+    def lifecycle_status(self):
+        """Фактический статус с учётом публикации и календарных границ."""
+        today = timezone.localdate()
+        if self.end_date and self.end_date < today:
+            return "finished"
+        if not self.is_published:
+            return "hidden"
+        if self.start_date and self.start_date > today:
+            return "upcoming"
+        return "active"
+
+    @property
     def extra_data_items(self):
         excluded = {
             "title",
@@ -296,6 +441,11 @@ class Promotion(models.Model):
             "бренд",
             "category",
             "категория",
+            "color",
+            "colour",
+            "цвет",
+            "цвет товара",
+            "расцветка",
             "promo_code",
             "промокод",
             "promo price",

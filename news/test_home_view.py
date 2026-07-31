@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from learning.models import LearningMaterial
+from promotions.models import Promotion
 
 
 class HomeViewTests(TestCase):
@@ -25,3 +26,20 @@ class HomeViewTests(TestCase):
         titles = [item.title for item in response.context["latest_learning"]]
 
         self.assertEqual(titles, ["Bravo", "Mike", "Alpha"])
+
+    def test_home_excludes_finished_promotions(self):
+        today = timezone.localdate()
+        Promotion.objects.create(
+            title="Завершённая акция",
+            is_published=True,
+            end_date=today - timedelta(days=1),
+        )
+        active = Promotion.objects.create(
+            title="Актуальная акция",
+            is_published=True,
+            end_date=today + timedelta(days=1),
+        )
+
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(list(response.context["latest_promotions"]), [active])

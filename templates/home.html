@@ -10,9 +10,8 @@
       <div class="hero-card hero-card--portal">
         <div class="hero-card__grid">
           <div class="hero-card__content">
-            <span class="eyebrow">Корпоративный портал</span>
             <h1>Единый портал для команды продаж</h1>
-            <p class="lead">Новости компании, база знаний по товарам и процессам, актуальные акции и быстрые подсказки по брендам, категориям и фишкам.</p>
+            <p class="lead">Новости компании, актуальные акции и база знаний по товарам и процессам — всё необходимое для уверенной консультации.</p>
             <div class="section-link-row">
               <a class="button" href="{% url 'learning_list' %}">Открыть базу знаний</a>
               <a class="button button--ghost" href="{% url 'promotion_list' %}">Смотреть акции</a>
@@ -22,19 +21,37 @@
           <aside class="hero-card__panel" aria-label="Разделы портала">
             <div class="hero-stat-list">
               <a class="hero-stat" href="{% url 'news_list' %}">
-                <span class="hero-stat__label">Новости</span>
-                <strong>Обновления</strong>
-                <p>Быстрое понимание новых моделей, процессов и внутренних изменений.</p>
+                <span class="hero-stat__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg>
+                </span>
+                <span class="hero-stat__copy">
+                  <span class="hero-stat__label">Новости</span>
+                  <strong>Обновления компании</strong>
+                  <span>Новые модели, процессы и внутренние изменения.</span>
+                </span>
+                <span class="hero-stat__arrow" aria-hidden="true">›</span>
               </a>
               <a class="hero-stat" href="{% url 'promotion_list' %}">
-                <span class="hero-stat__label">Акции</span>
-                <strong>Предложения</strong>
-                <p>Актуальные промо-механики, промокоды и выгода для команды продаж.</p>
+                <span class="hero-stat__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="m4 12 8-8h7v7l-8 8z"/><circle cx="16" cy="7" r="1"/></svg>
+                </span>
+                <span class="hero-stat__copy">
+                  <span class="hero-stat__label">Акции</span>
+                  <strong>Выгодные предложения</strong>
+                  <span>Промо-механики, промокоды и условия акций.</span>
+                </span>
+                <span class="hero-stat__arrow" aria-hidden="true">›</span>
               </a>
               <a class="hero-stat" href="{% url 'learning_list' %}">
-                <span class="hero-stat__label">База знаний</span>
-                <strong>База знаний</strong>
-                <p>Материалы по товарам, брендам, фишкам, сценариям консультации и внутренним процессам.</p>
+                <span class="hero-stat__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M3 5.5c3-1.4 6-1.1 9 1v13c-3-2.1-6-2.4-9-1zM21 5.5c-3-1.4-6-1.1-9 1v13c3-2.1 6-2.4 9-1z"/></svg>
+                </span>
+                <span class="hero-stat__copy">
+                  <span class="hero-stat__label">База знаний</span>
+                  <strong>Материалы для работы</strong>
+                  <span>Товары, бренды, фишки и сценарии консультации.</span>
+                </span>
+                <span class="hero-stat__arrow" aria-hidden="true">›</span>
               </a>
             </div>
           </aside>
@@ -43,168 +60,74 @@
     </div>
   </section>
 
-  <section class="section">
-    <div class="container">
-      <div class="section-copy section-copy--split">
-        <div>
-          <span class="eyebrow">Новости</span>
-          <h2>Последние новости</h2>
+  <section class="section section--home-feed">
+    <div class="container home-feed-grid">
+      <section class="home-feed-column" aria-labelledby="home-news-title">
+        <div class="home-feed-column__header">
+          <h2 id="home-news-title">Последние новости</h2>
+          <a href="{% url 'news_list' %}">Все новости <span aria-hidden="true">›</span></a>
         </div>
-        <p class="lead">Короткая лента ключевых обновлений, которые стоит увидеть в первую очередь.</p>
-      </div>
-      <div class="grid grid--three">
-        {% for item in latest_news %}
-          <a class="card-link" href="{% url 'news_detail' item.pk %}">
-            <article class="card simple-card">
-              <div class="meta">
-                <span>{{ item.get_category_display }}</span>
-                <span>{{ item.created_at|date:"d.m.Y" }}</span>
-              </div>
-              <h3>{{ item.title }}</h3>
-              <p class="simple-card__summary">{{ item.summary|default:item.content|striptags|truncatechars:160 }}</p>
-              {% if item.feature_tags.all or item.brands.all or item.product_categories.all %}
-                <div class="chips">
-                  {% for tag in item.feature_tags.all %}
-                    <span class="chip chip--feature">{{ tag.name }}</span>
-                  {% endfor %}
-                  {% for brand in item.brands.all %}
-                    <span class="chip">{{ brand.name }}</span>
-                  {% endfor %}
-                  {% for category in item.product_categories.all %}
-                    <span class="chip">{{ category.name }}</span>
-                  {% endfor %}
-                </div>
+        <div class="home-feed-list">
+          {% for item in latest_news %}
+            <a class="home-feed-item" href="{% url 'news_detail' item.pk %}">
+              <span class="home-feed-item__icon" aria-hidden="true">Н</span>
+              <span class="home-feed-item__copy">
+                <strong>{{ item.title }}</strong>
+                <span>{{ item.summary|default:item.content|striptags|truncatechars:100 }}</span>
+              </span>
+              <time datetime="{{ item.created_at|date:'Y-m-d' }}">{{ item.created_at|date:"d.m.Y" }}</time>
+            </a>
+          {% empty %}
+            <div class="empty-state">Новостей пока нет.</div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="home-feed-column" aria-labelledby="home-promotions-title">
+        <div class="home-feed-column__header">
+          <h2 id="home-promotions-title">Актуальные акции</h2>
+          <a href="{% url 'promotion_list' %}">Все акции <span aria-hidden="true">›</span></a>
+        </div>
+        <div class="home-feed-list">
+          {% for item in latest_promotions %}
+            <a class="home-feed-item" href="{% url 'promotion_detail' item.slug %}">
+              <span class="home-feed-item__icon" aria-hidden="true">%</span>
+              <span class="home-feed-item__copy">
+                <strong>{{ item.title }}</strong>
+                <span>{{ item.benefit_summary|default:item.card_summary|default:item.summary|default:item.details|striptags|truncatechars:100 }}</span>
+              </span>
+              {% if item.lifecycle_status == "upcoming" and item.start_date %}
+                <time datetime="{{ item.start_date|date:'Y-m-d' }}">с {{ item.start_date|date:"d.m" }}</time>
+              {% elif item.end_date %}
+                <time datetime="{{ item.end_date|date:'Y-m-d' }}">до {{ item.end_date|date:"d.m" }}</time>
               {% endif %}
-            </article>
-          </a>
-        {% empty %}
-          <div class="empty-state">Новостей пока нет.</div>
-        {% endfor %}
-      </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container">
-      <div class="section-copy section-copy--split">
-        <div>
-          <span class="eyebrow">Акции</span>
-          <h2>Горячие акции</h2>
+            </a>
+          {% empty %}
+            <div class="empty-state">Акций пока нет.</div>
+          {% endfor %}
         </div>
-        <p class="lead">Подборка самых заметных предложений, на которые удобно опираться в консультации.</p>
-      </div>
-      <div class="promo-list-stack">
-        {% for item in latest_promotions %}
-          <a class="card-link" href="{% url 'promotion_detail' item.slug %}">
-            <article class="card promo-card promo-card--row{% if item.is_featured %} promo-card--featured{% endif %}">
-              <div class="promo-card__media{% if not item.cover_image %} promo-card__media--placeholder{% endif %}">
-                {% if item.cover_image %}
-                  <img src="{{ item.cover_image.url }}" alt="{{ item.title }}" />
-                {% else %}
-                  <div class="promo-card__media-frame">
-                    <div class="promo-card__placeholder">
-                      <span>Акция</span>
-                    </div>
-                  </div>
-                {% endif %}
-              </div>
+      </section>
 
-              <div class="promo-card__body">
-                <div class="meta promo-card__meta">
-                  {% if item.badge %}
-                    <span class="chip chip--feature">{{ item.badge }}</span>
-                  {% endif %}
-                  {% if item.brand %}
-                    <span class="chip chip--feature">{{ item.brand }}</span>
-                  {% endif %}
-                  {% if item.category %}
-                    <span>{{ item.category }}</span>
-                  {% endif %}
-                </div>
-                <div class="promo-card__content">
-                  <h3 class="promo-card__title">{{ item.title }}</h3>
-                  <p class="promo-card__excerpt">
-                    {{ item.benefit_summary|default:item.card_summary|default:item.summary|default:item.details|striptags|truncatechars:220 }}
-                  </p>
-                </div>
-                <div class="chips promo-card__footer">
-                  {% if item.formatted_promo_price %}
-                    <span class="chip">Промоцена: {{ item.formatted_promo_price }}</span>
-                  {% endif %}
-                  {% if item.formatted_benefit_value %}
-                    <span class="chip">{{ item.benefit_label }}: {{ item.formatted_benefit_value }}</span>
-                  {% endif %}
-                  {% if item.start_date or item.end_date %}
-                    <span class="chip">
-                      {% if item.start_date %}с {{ item.start_date|date:"d.m.Y" }}{% endif %}
-                      {% if item.end_date %} по {{ item.end_date|date:"d.m.Y" }}{% endif %}
-                    </span>
-                  {% endif %}
-                  {% if item.promo_code %}
-                    <span class="chip">Промокод: {{ item.promo_code }}</span>
-                  {% endif %}
-                </div>
-              </div>
-            </article>
-          </a>
-        {% empty %}
-          <div class="empty-state">Акции пока не загружены.</div>
-        {% endfor %}
-      </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container">
-      <div class="section-copy section-copy--split">
-        <div>
-          <span class="eyebrow">База знаний</span>
-          <h2>Свежие материалы базы знаний</h2>
+      <section class="home-feed-column" aria-labelledby="home-learning-title">
+        <div class="home-feed-column__header">
+          <h2 id="home-learning-title">Свежие материалы</h2>
+          <a href="{% url 'learning_list' %}">Все материалы <span aria-hidden="true">›</span></a>
         </div>
-        <p class="lead">Новые карточки и инструкции, которые помогают быстрее ориентироваться в товарах, фишках и процессах.</p>
-      </div>
-      <div class="grid grid--three">
-        {% for item in latest_learning %}
-          <a class="card-link" href="{% url 'learning_detail' item.pk %}">
-            <article class="card learning-card">
-              <div
-                class="learning-card__cover{% if item.cover_image %} learning-card__cover--image{% endif %}"
-                {% if item.cover_image %}
-                  style="--cover-image: url('{{ item.cover_image.url }}');"
-                {% endif %}
-              >
-                <div class="learning-card__cover-top">
-                  <span class="learning-card__type">{{ item.get_material_type_display }}</span>
-                  <span class="learning-card__open">Открыть</span>
-                </div>
-              </div>
-
-              <div class="learning-card__body">
-                <h3>{{ item.title }}</h3>
-                {% with preview_text=item.summary|default:item.product_short_summary|default:item.product_full_description|default:item.content|striptags|truncatechars:180 %}
-                  <p class="learning-card__excerpt">{{ preview_text }}</p>
-                {% endwith %}
-
-                {% if item.feature_tags.all or item.brands.all or item.categories.all %}
-                  <div class="chips learning-card__chips">
-                    {% for tag in item.feature_tags.all %}
-                      <span class="chip chip--feature">{{ tag.name }}</span>
-                    {% endfor %}
-                    {% for brand in item.brands.all %}
-                      <span class="chip">{{ brand.name }}</span>
-                    {% endfor %}
-                    {% for category in item.categories.all %}
-                      <span class="chip">{{ category.name }}</span>
-                    {% endfor %}
-                  </div>
-                {% endif %}
-              </div>
-            </article>
-          </a>
-        {% empty %}
-          <div class="empty-state">Материалов базы знаний пока нет.</div>
-        {% endfor %}
-      </div>
+        <div class="home-feed-list">
+          {% for item in latest_learning %}
+            <a class="home-feed-item" href="{% url 'learning_detail' item.pk %}">
+              <span class="home-feed-item__icon" aria-hidden="true">БЗ</span>
+              <span class="home-feed-item__copy">
+                <strong>{{ item.title }}</strong>
+                <span>{{ item.summary|default:item.product_short_summary|default:item.product_full_description|default:item.content|striptags|truncatechars:100 }}</span>
+              </span>
+              <span class="home-feed-item__meta">{{ item.get_material_type_display }}</span>
+            </a>
+          {% empty %}
+            <div class="empty-state">Материалов пока нет.</div>
+          {% endfor %}
+        </div>
+      </section>
     </div>
   </section>
 {% endblock %}

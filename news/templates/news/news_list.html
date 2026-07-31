@@ -5,43 +5,51 @@
 {% endblock %}
 
 {% block content %}
-  <section class="page-header">
+  <section class="page-header page-header--compact">
     <div class="container">
-      <span class="eyebrow">Новости</span>
-      <h1>Новости компании</h1>
-      <p class="lead">Публикации о новых моделях, акциях, внутренних изменениях и важных процессах.</p>
+      <div class="page-intro">
+        <h1>Новости компании</h1>
+        <p class="lead">Новые модели, акции, внутренние изменения и важные процессы.</p>
+      </div>
+      <div class="result-summary">
+        <p class="result-count" aria-live="polite">Всего публикаций: <strong>{{ result_count }}</strong></p>
+      </div>
     </div>
   </section>
 
-  <section class="section">
-    <div class="container grid grid--three">
-      {% for item in news %}
-        <a class="card-link" href="{% url 'news_detail' item.pk %}">
-          <article class="card simple-card news-card">
-            <div class="meta">
-              <span>{{ item.get_category_display }}</span>
-              <span>{{ item.created_at|date:"d.m.Y" }}</span>
-            </div>
-            <h3>{{ item.title }}</h3>
-            <p class="simple-card__summary">{{ item.summary|default:item.content|striptags|truncatechars:180 }}</p>
-            {% if item.feature_tags.all or item.brands.all or item.product_categories.all %}
-              <div class="chips">
-                {% for tag in item.feature_tags.all %}
-                  <span class="chip chip--feature">{{ tag.name }}</span>
-                {% endfor %}
-                {% for brand in item.brands.all %}
-                  <span class="chip">{{ brand.name }}</span>
-                {% endfor %}
-                {% for category in item.product_categories.all %}
-                  <span class="chip">{{ category.name }}</span>
-                {% endfor %}
+  <section class="section section--results">
+    <div class="container">
+      <div class="grid grid--three result-grid">
+        {% for item in news %}
+          <a class="card-link" href="{% url 'news_detail' item.pk %}">
+            <article class="card simple-card news-card{% if item.cover_image %} news-card--with-cover{% endif %}">
+              {% if item.cover_image %}
+                <div class="news-card__media">
+                  <img src="{{ item.cover_image.url }}" alt="" loading="lazy" decoding="async" />
+                </div>
+              {% endif %}
+              <div class="news-card__body">
+                <div class="meta">
+                  <span>{{ item.get_category_display }}</span>
+                  <time datetime="{{ item.created_at|date:'Y-m-d' }}">{{ item.created_at|date:"d.m.Y" }}</time>
+                </div>
+                <h3>{{ item.title }}</h3>
+                <p class="simple-card__summary">{{ item.summary|default:item.content|striptags|truncatechars:180 }}</p>
+                {% if item.feature_tags.all or item.brands.all or item.product_categories.all %}
+                  <div class="chips">
+                    {% for tag in item.feature_tags.all|slice:":2" %}<span class="chip chip--feature">{{ tag.name }}</span>{% endfor %}
+                    {% for brand in item.brands.all|slice:":2" %}<span class="chip">{{ brand.name }}</span>{% endfor %}
+                    {% for category in item.product_categories.all|slice:":2" %}<span class="chip">{{ category.name }}</span>{% endfor %}
+                  </div>
+                {% endif %}
               </div>
-            {% endif %}
-          </article>
-        </a>
-      {% empty %}
-        <div class="empty-state">Новостей пока нет.</div>
-      {% endfor %}
+            </article>
+          </a>
+        {% empty %}
+          <div class="empty-state empty-state--wide">Новостей пока нет.</div>
+        {% endfor %}
+      </div>
+      {% include "includes/pagination.html" %}
     </div>
   </section>
 {% endblock %}

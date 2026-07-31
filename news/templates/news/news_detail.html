@@ -7,7 +7,7 @@
 {% block content %}
   <section class="page-header">
     <div class="container page-layout">
-      <div>
+      <div class="detail-header__content reading-column">
         <div class="meta">
           <span>{{ news.get_category_display }}</span>
           <span>{{ news.created_at|date:"d.m.Y H:i" }}</span>
@@ -30,18 +30,18 @@
       </div>
 
       {% if news.cover_image %}
-        <div class="page-cover">
-          <img src="{{ news.cover_image.url }}" alt="{{ news.title }}" />
+        <div class="page-cover content-wide">
+          <img src="{{ news.cover_image.url }}" alt="{{ news.title }}" loading="eager" decoding="async" fetchpriority="high" />
         </div>
       {% endif %}
 
-      <article class="card stream-content">
+      <article class="card stream-content detail-content">
         {% if news.content %}
-          <div class="rich-copy">{{ news.content|linebreaks }}</div>
+          <div class="rich-copy reading-column">{{ news.content|linebreaks }}</div>
         {% endif %}
 
         {% for block in news.blocks.all %}
-          <section class="content-block">
+          <section class="content-block content-block--{{ block.block_type }}{% if block.block_type == 'image' %} content-block--wide content-wide{% else %} content-block--reading reading-column{% endif %}">
             {% if block.title %}
               <h3>{{ block.title }}</h3>
             {% endif %}
@@ -50,7 +50,7 @@
               <div class="rich-copy">{{ block.text|safe }}</div>
             {% elif block.block_type == "image" and block.image %}
               <figure class="article-image article-image--single">
-                <img src="{{ block.image.url }}" alt="{{ block.caption|default:block.title }}" />
+                <img src="{{ block.image.url }}" alt="{{ block.caption|default:block.title }}" loading="lazy" decoding="async" />
               </figure>
             {% elif block.block_type == "quote" and block.text %}
               <blockquote class="rich-copy">{{ block.text|safe }}</blockquote>

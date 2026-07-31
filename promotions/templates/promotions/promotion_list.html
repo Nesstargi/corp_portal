@@ -5,31 +5,35 @@
 {% endblock %}
 
 {% block content %}
-  <section class="page-header">
+  <section class="page-header page-header--compact">
     <div class="container">
-      <span class="eyebrow">Акции</span>
-      <h1>Актуальные акции</h1>
-      <p class="lead">Наши самые выгодные промо-предложения. Для точного поиска воспользуйтесь фильтрами.</p>
+      <div class="page-intro">
+        <h1>Актуальные акции</h1>
+        <p class="lead">Выгодные предложения и промокоды для консультации.</p>
+      </div>
 
       <details
         class="filter-panel"
         data-filter-panel
-        data-has-active-filters="{% if search_query or selected_brand or selected_status %}true{% else %}false{% endif %}"
-        open
+        data-has-active-filters="{% if has_active_filters %}true{% else %}false{% endif %}"
       >
         <summary class="filter-panel__summary">
-          <span>Фильтры</span>
+          <span class="filter-panel__title">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.5 7.2V19l-3 1v-7.8z" /></svg>
+            Фильтры
+          </span>
           <span class="filter-panel__state" aria-hidden="true"></span>
         </summary>
 
         <form class="filters" method="get">
-          <div class="filter-field">
+          {% if selected_promo_type %}<input type="hidden" name="promo_type" value="{{ selected_promo_type }}" />{% endif %}
+          <div class="filter-field filter-field--search">
             <label for="q">Поиск</label>
-            <input id="q" name="q" type="text" value="{{ search_query }}" placeholder="Например: Samsung, cashback, промокод" />
+            <input class="form-control" id="q" name="q" type="search" value="{{ search_query }}" placeholder="Название, бренд или промокод" />
           </div>
           <div class="filter-field">
             <label for="brand">Бренд</label>
-            <select id="brand" name="brand">
+            <select class="form-control" id="brand" name="brand">
               <option value="">Все бренды</option>
               {% for brand in brands %}
                 <option value="{{ brand }}" {% if selected_brand == brand %}selected{% endif %}>{{ brand }}</option>
@@ -38,12 +42,10 @@
           </div>
           <div class="filter-field">
             <label for="status">Статус</label>
-            <select id="status" name="status">
+            <select class="form-control" id="status" name="status">
               <option value="" {% if not selected_status %}selected{% endif %}>Актуальные и будущие</option>
               <option value="active" {% if selected_status == "active" %}selected{% endif %}>Активные</option>
               <option value="upcoming" {% if selected_status == "upcoming" %}selected{% endif %}>Скоро начнутся</option>
-              <option value="finished" {% if selected_status == "finished" %}selected{% endif %}>Завершённые</option>
-              <option value="all" {% if selected_status == "all" %}selected{% endif %}>Все</option>
             </select>
           </div>
           <div class="filters__actions">
@@ -51,80 +53,80 @@
             <a class="button button--ghost" href="{% url 'promotion_list' %}">Сбросить</a>
           </div>
         </form>
-
       </details>
 
-      <div class="promo-tabs" aria-label="Тип акции">
+      <nav class="promo-tabs" aria-label="Тип акции">
         {% for tab in promotion_type_tabs %}
           <a
             class="promo-tab{% if selected_promo_type == tab.key %} is-active{% endif %}"
             href="{{ tab.url }}"
+            {% if selected_promo_type == tab.key %}aria-current="page"{% endif %}
           >
             <span>{{ tab.label }}</span>
             <span class="promo-tab__count">{{ tab.count }}</span>
           </a>
         {% endfor %}
+      </nav>
+
+      <div class="result-summary" aria-live="polite">
+        <p class="result-count">Найдено: <strong>{{ result_count }}</strong></p>
+        {% if active_filter_items %}
+          <div class="active-filters">
+            <span class="active-filters__label">Активные фильтры:</span>
+            {% for item in active_filter_items %}
+              <span class="active-filter">{{ item.label }}: {{ item.value }}</span>
+            {% endfor %}
+            <a class="active-filters__reset" href="{% url 'promotion_list' %}">Сбросить все</a>
+          </div>
+        {% endif %}
       </div>
     </div>
   </section>
 
-  <section class="section">
-    <div class="container promo-list-stack">
-      {% for item in promotions %}
-        <a class="card-link" href="{% url 'promotion_detail' item.slug %}">
-          <article class="card promo-card promo-card--row{% if item.is_featured %} promo-card--featured{% endif %}">
-            <div class="promo-card__media{% if not item.cover_image %} promo-card__media--placeholder{% endif %}">
-              {% if item.cover_image %}
-                <img src="{{ item.cover_image.url }}" alt="{{ item.title }}" />
-              {% else %}
-                <div class="promo-card__media-frame">
-                  <div class="promo-card__placeholder">
-                    <span>Акция</span>
-                  </div>
+  <section class="section section--results">
+    <div class="container">
+      <h2 class="visually-hidden">Список акций</h2>
+      <div class="promo-list-stack">
+        {% for item in promotions %}
+          <a class="card-link" href="{% url 'promotion_detail' item.slug %}">
+            <article class="card promo-card promo-card--row{% if item.is_featured %} promo-card--featured{% endif %}">
+              <div class="promo-card__media{% if not item.cover_image %} promo-card__media--placeholder{% endif %}">
+                {% if item.cover_image %}
+                  <img src="{{ item.cover_image.url }}" alt="" loading="lazy" decoding="async" />
+                {% else %}
+                  <div class="promo-card__placeholder" aria-hidden="true"><span>%</span></div>
+                {% endif %}
+              </div>
+              <div class="promo-card__body">
+                <div class="meta promo-card__meta">
+                  {% if item.lifecycle_status == "upcoming" %}<span class="card-kind">Скоро</span>{% endif %}
+                  {% if item.badge %}<span class="card-kind">{{ item.badge }}</span>{% endif %}
+                  {% if item.brand %}<span>{{ item.brand }}</span>{% endif %}
+                  {% if item.category %}<span>{{ item.category }}</span>{% endif %}
                 </div>
-              {% endif %}
-            </div>
-            <div class="promo-card__body">
-              <div class="meta promo-card__meta">
-                {% if item.badge %}
-                  <span class="chip chip--feature">{{ item.badge }}</span>
-                {% endif %}
-                {% if item.brand %}
-                  <span class="chip chip--feature">{{ item.brand }}</span>
-                {% endif %}
-                {% if item.category %}
-                  <span>{{ item.category }}</span>
-                {% endif %}
+                <div class="promo-card__content">
+                  <h3 class="promo-card__title">{{ item.title }}</h3>
+                  <p class="promo-card__excerpt">{{ item.benefit_summary|default:item.card_summary|default:item.summary|default:item.details|striptags|truncatechars:220 }}</p>
+                </div>
+                <div class="chips promo-card__footer">
+                  {% if item.formatted_promo_price %}<span class="chip">Промоцена: {{ item.formatted_promo_price }}</span>{% endif %}
+                  {% if item.formatted_benefit_value %}<span class="chip">{{ item.benefit_label }}: {{ item.formatted_benefit_value }}</span>{% endif %}
+                  {% if item.start_date or item.end_date %}
+                    <span class="chip">
+                      {% if item.start_date %}с {{ item.start_date|date:"d.m.Y" }}{% endif %}
+                      {% if item.end_date %} по {{ item.end_date|date:"d.m.Y" }}{% endif %}
+                    </span>
+                  {% endif %}
+                  {% if item.promo_code %}<span class="chip">Промокод: {{ item.promo_code }}</span>{% endif %}
+                </div>
               </div>
-              <div class="promo-card__content">
-                <h3 class="promo-card__title">{{ item.title }}</h3>
-                <p class="promo-card__excerpt">
-                  {{ item.benefit_summary|default:item.card_summary|default:item.summary|default:item.details|striptags|truncatechars:220 }}
-                </p>
-              </div>
-              <div class="chips promo-card__footer">
-                {% if item.formatted_promo_price %}
-                  <span class="chip">Промоцена: {{ item.formatted_promo_price }}</span>
-                {% endif %}
-                {% if item.formatted_benefit_value %}
-                  <span class="chip">{{ item.benefit_label }}: {{ item.formatted_benefit_value }}</span>
-                {% endif %}
-                {% if item.start_date or item.end_date %}
-                  <span class="chip">
-                    {% if item.start_date %}с {{ item.start_date|date:"d.m.Y" }}{% endif %}
-                    {% if item.end_date %} по {{ item.end_date|date:"d.m.Y" }}{% endif %}
-                  </span>
-                {% endif %}
-                {% if item.promo_code %}
-                  <span class="chip">Промокод: {{ item.promo_code }}</span>
-                {% endif %}
-              </div>
-            </div>
-          </article>
-        </a>
-      {% empty %}
-        <div class="empty-state">Акций по выбранным фильтрам пока нет.</div>
-      {% endfor %}
+            </article>
+          </a>
+        {% empty %}
+          <div class="empty-state">Акций по выбранным фильтрам пока нет.</div>
+        {% endfor %}
+      </div>
+      {% include "includes/pagination.html" %}
     </div>
   </section>
 {% endblock %}

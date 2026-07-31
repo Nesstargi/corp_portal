@@ -57,12 +57,13 @@ nano .env.production
 Обязательно поменяй:
 
 - `DOMAIN` - твой домен.
-- `ALLOWED_HOSTS` - твой домен, при необходимости `www`.
+- `ALLOWED_HOSTS` - твой домен, при необходимости `www`, а также `127.0.0.1,localhost` для Docker healthcheck.
 - `CSRF_TRUSTED_ORIGINS` - `https://твой-домен`.
 - `SITE_URL` - `https://твой-домен`.
 - `POSTGRES_PASSWORD` - длинный пароль.
 - `SECRET_KEY` - длинный случайный ключ.
 - `TELEGRAM_BOT_TOKEN` и `TELEGRAM_WEBHOOK_SECRET`, если нужен бот.
+- `PROMOTION_SYNC_INTERVAL_SECONDS` — период обновления акций из таблицы (по умолчанию 3600 секунд).
 
 Сгенерировать секреты можно так:
 
@@ -88,7 +89,13 @@ docker compose --env-file .env.production exec web python manage.py createsuperu
 ```bash
 curl -I https://твой-домен/health/
 docker compose --env-file .env.production logs -f web
+docker compose --env-file .env.production logs -f promotion_sync
 ```
+
+После первого запуска открой источник акций в админке, настрой минимальное число
+распознанных строк и допустимый процент пропавших акций, затем сначала выполни
+«Проверить импорт без сохранения». Результаты всех запусков доступны по ссылке
+«История запусков» в карточке источника.
 
 ## Обновление после нового push
 

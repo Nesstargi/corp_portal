@@ -1,5 +1,5 @@
 {% for block in blocks %}
-  <section id="material-section-{{ forloop.counter }}" class="content-block content-block--{{ block.block_type }}{% if not block.title %} content-block--untitled{% endif %}">
+  <section id="material-section-{{ forloop.counter }}" class="content-block content-block--{{ block.block_type }}{% if not block.title %} content-block--untitled{% endif %}{% if block.block_type == 'image' or block.block_type == 'video' or block.block_type == 'specification' or block.block_type == 'table' or block.block_type == 'comparison_table' or block.block_type == 'instruction_step' %} content-block--wide content-wide{% else %} content-block--reading reading-column{% endif %}">
     {% if block.block_type == "text" and block.text %}
       {% if block.title %}
         <h3>{{ block.title }}</h3>
@@ -20,7 +20,7 @@
                 <div class="image-slider__track" data-slider-track>
                   {% for image_item in gallery_items %}
                     <figure class="image-slider__slide" data-slide aria-hidden="{% if not forloop.first %}true{% else %}false{% endif %}">
-                      <img src="{{ image_item.image.url }}" alt="{{ image_item.caption|default:block.title }}" />
+                      <img src="{{ image_item.image.url }}" alt="{{ image_item.caption|default:block.title }}" loading="lazy" decoding="async" />
                       {% if image_item.caption %}
                         <figcaption class="meta">{{ image_item.caption }}</figcaption>
                       {% endif %}
@@ -39,7 +39,7 @@
           {% else %}
             {% for image_item in gallery_items %}
               <figure class="article-image article-image--single">
-                <img src="{{ image_item.image.url }}" alt="{{ image_item.caption|default:block.title }}" />
+                <img src="{{ image_item.image.url }}" alt="{{ image_item.caption|default:block.title }}" loading="lazy" decoding="async" />
                 {% if image_item.caption %}
                   <figcaption class="meta">{{ image_item.caption }}</figcaption>
                 {% endif %}
@@ -107,8 +107,8 @@
                 {% if item.title %}
                   <h4>{{ item.title }}</h4>
                 {% endif %}
-                {% if item.pitch %}
-                  <blockquote class="article-quote rich-copy">{{ item.pitch|linebreaksbr }}</blockquote>
+                {% if item.description or item.pitch %}
+                  <div class="article-note__text rich-copy">{{ item.description|default:item.pitch|linebreaksbr }}</div>
                 {% endif %}
               </article>
             {% endfor %}
@@ -135,7 +135,7 @@
         </div>
         {% if block.image %}
           <figure class="instruction-step__media">
-            <img src="{{ block.image.url }}" alt="{{ block.title|default:block.caption|default:'Шаг инструкции' }}" />
+            <img src="{{ block.image.url }}" alt="{{ block.title|default:block.caption|default:'Шаг инструкции' }}" loading="lazy" decoding="async" />
             {% if block.caption %}
               <figcaption class="meta">{{ block.caption }}</figcaption>
             {% endif %}
@@ -150,7 +150,7 @@
       {% endif %}
       {% with items=block.structured_items %}
         {% if items %}
-          <div class="spec-table-wrap">
+          <div class="spec-table-wrap table-scroll-region">
             <table class="spec-table">
               <tbody>
                 {% for item in items %}
@@ -165,7 +165,7 @@
             </table>
           </div>
         {% elif block.title %}
-          <div class="spec-table-wrap">
+          <div class="spec-table-wrap table-scroll-region">
             <table class="spec-table">
               <tbody>
                 <tr>
@@ -183,7 +183,7 @@
       {% endif %}
       {% with table=block.manual_table %}
         {% if table.rows %}
-          <div class="spec-table-wrap manual-block-table-wrap">
+          <div class="spec-table-wrap manual-block-table-wrap table-scroll-region">
             <table class="spec-table manual-block-table">
               {% if table.headers.0 or table.headers.1 %}
                 <thead>
@@ -214,7 +214,7 @@
       {% endif %}
       {% with table=block.comparison_table %}
         {% if table.models and table.rows %}
-          <div class="spec-table-wrap comparison-block-table-wrap">
+          <div class="spec-table-wrap comparison-block-table-wrap table-scroll-region">
             <table class="spec-table comparison-block-table">
               <thead>
                 <tr>
@@ -251,7 +251,20 @@
       {% if block.title %}
         <h3>{{ block.title }}</h3>
       {% endif %}
-      <p><a class="button button--ghost" href="{{ block.video_url }}" target="_blank" rel="noreferrer">Открыть видео</a></p>
+      {% if block.video_embed_url %}
+        <div class="video-embed">
+          <iframe
+            src="{{ block.video_embed_url }}"
+            title="{{ block.title|default:'Видео материала' }}"
+            loading="lazy"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+          ></iframe>
+        </div>
+      {% else %}
+        <p><a class="button button--ghost" href="{{ block.video_url }}" target="_blank" rel="noreferrer">Открыть видео</a></p>
+      {% endif %}
       {% if block.caption %}
         <p class="meta">{{ block.caption }}</p>
       {% endif %}

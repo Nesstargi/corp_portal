@@ -28,7 +28,7 @@ Then fill in:
 - `DOMAIN=testcorpportal.xyz`
 - `POSTGRES_PASSWORD=...`
 - `SECRET_KEY=...`
-- `ALLOWED_HOSTS=testcorpportal.xyz`
+- `ALLOWED_HOSTS=testcorpportal.xyz,www.testcorpportal.xyz,127.0.0.1,localhost`
 - `CSRF_TRUSTED_ORIGINS=https://testcorpportal.xyz`
 
 ## Start The Project
@@ -43,6 +43,7 @@ Then check:
 docker compose ps
 docker compose logs -f caddy
 docker compose logs -f web
+docker compose logs -f promotion_sync
 ```
 
 ## Create Admin User
@@ -90,3 +91,8 @@ docker compose exec web python manage.py shell
 - Caddy issues and renews HTTPS certificates automatically.
 - PostgreSQL data is stored in the `postgres_data` volume.
 - Uploaded files are stored in the `media_data` volume.
+- Active promotion sources are synchronized automatically. Configure the interval with
+  `PROMOTION_SYNC_INTERVAL_SECONDS` (default: 3600 seconds).
+- Configure the minimum recognized row count and maximum missing-row percentage for
+  every promotion source in Django admin. Suspiciously incomplete exports are blocked
+  before existing promotions are changed, and every run is recorded in import history.
